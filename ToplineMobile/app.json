@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "ToplineMobile",
+    "slug": "ToplineMobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "icon": "./assets/icon.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.kisimoni209.ToplineMobile"
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0f33cfaa-dac7-47be-8077-41014a56d366"
+      }
+    },
+    "plugins": [
+      "expo-video"
+    ]
+  }
+}
