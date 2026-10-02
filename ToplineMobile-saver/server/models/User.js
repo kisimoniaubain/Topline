@@ -22,6 +22,12 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    phone: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     password: {
       type: String,
       required: true,
@@ -38,6 +44,11 @@ const userSchema = new mongoose.Schema(
     },
 
     bio: {
+      type: String,
+      default: "",
+    },
+
+    location: {
       type: String,
       default: "",
     },

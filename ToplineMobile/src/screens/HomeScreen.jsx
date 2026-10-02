@@ -1,585 +1,411 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
   SafeAreaView,
+  TouchableOpacity,
+  Dimensions,
+  FlatList,
   Image,
-  useColorScheme,
 } from 'react-native';
 
 import {
   Heart,
   MessageCircle,
+  Bell,
   Share2,
-  Plus,
-  MoreHorizontal,
-  Image as ImageIcon,
-  Video,
+  UserPlus,
   Home,
   Users,
-  Bell,
-  Menu,
+  Plus,
+  User,
+  Music2,
 } from 'lucide-react-native';
 
-import { colors } from '../theme';
+import VideoPlayer from '../components/VideoPlayer';
+import { useAuth } from '../context/AuthContext';
+import { getPosts } from '../services/postService';
 import styles from './HomeScreen.css';
 
-const stories = [
-  { id: 1, name: 'Your Story', own: true },
-  { id: 2, name: 'Sarah' },
-  { id: 3, name: 'David' },
-  { id: 4, name: 'Mary' },
-  { id: 5, name: 'Alex' },
-];
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } =
+  Dimensions.get('window');
 
-const initialPosts = [
+const ORANGE = '#F57F17';
+const WHITE = '#FFFFFF';
+
+const videos = [
   {
-    id: 1,
-    name: 'John Doe',
-    username: 'johndoe',
-    time: '2h',
-    text: 'Had a great day today! Sometimes the simplest moments are the best ones. 🧡',
+    id: '1',
+    video:
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    username: '@topline',
+    caption:
+      'A sample clip for testing video playback.',
+    music: 'MP4 sample',
     likes: 245,
-    comments: 1,
+    comments: 18,
     shares: 12,
     liked: false,
+    following: false,
   },
   {
-    id: 2,
-    name: 'Sarah',
-    username: 'sarah',
-    time: '4h',
-    text: 'Beautiful day to connect with friends and share positive moments.',
+    id: '2',
+    video:
+      'https://media.w3.org/2010/05/sintel/trailer.mp4',
+    username: '@sintel',
+    caption:
+      'Animated trailer sample.',
+    music: 'MP4 sample',
     likes: 128,
     comments: 8,
     shares: 5,
     liked: false,
+    following: false,
+  },
+  {
+    id: '3',
+    video:
+      'https://media.w3.org/2010/05/bunny/trailer.mp4',
+    username: '@bigbuckbunny',
+    caption:
+      'A short animated sample clip.',
+    music: 'MP4 sample',
+    likes: 532,
+    comments: 42,
+    shares: 29,
+    liked: false,
+    following: false,
   },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const [postText, setPostText] = useState('');
-  const [posts, setPosts] = useState(initialPosts);
+  const { token } = useAuth();
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [feed, setFeed] = useState(videos);
 
-  const logo = isDark
-    ? require('../../assets/logo1.png')
-    : require('../../assets/logo.png');
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const data = await getPosts(token);
+        const savedPosts = (data.posts || []).map((post) => ({
+          id: post._id,
+          video: post.video || null,
+          image: post.image || null,
+          username: post.author?.username
+            ? `@${post.author.username}`
+            : '@toplineuser',
+          caption: post.text || '',
+          music: post.video ? 'Video post' : 'Topline post',
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          liked: false,
+          following: false,
+        }));
+
+        setFeed([...savedPosts, ...videos]);
+      } catch (error) {
+        console.error('Failed to load posts:', error);
+      }
+    };
+
+    const unsubscribe = navigation.addListener('focus', loadPosts);
+    loadPosts();
+    return unsubscribe;
+  }, [navigation, token]);
 
   const toggleLike = (id) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === id
+    setFeed((current) =>
+      current.map((item) =>
+        item.id === id
           ? {
-              ...post,
-              liked: !post.liked,
-              likes: post.liked
-                ? post.likes - 1
-                : post.likes + 1,
+              ...item,
+              liked: !item.liked,
+              likes: item.liked
+                ? item.likes - 1
+                : item.likes + 1,
             }
-          : post
+          : item
       )
     );
   };
 
-  const handlePost = () => {
-    if (!postText.trim()) {
-      return;
-    }
-
-    const newPost = {
-      id: Date.now(),
-      name: 'You',
-      username: 'you',
-      time: 'now',
-      text: postText.trim(),
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      liked: false,
-    };
-
-    setPosts((currentPosts) => [newPost, ...currentPosts]);
-    setPostText('');
+  const toggleFollow = (id) => {
+    setFeed((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              following: !item.following,
+            }
+          : item
+      )
+    );
   };
 
-  return (
-    <SafeAreaView
-      style={[
-        styles.safeArea,
-        {
-          backgroundColor: isDark
-            ? colors.black
-            : colors.background,
-        },
-      ]}
-    >
+  const handleViewableItemsChanged = ({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      const index = viewableItems[0].index;
+
+      if (typeof index === 'number') {
+        setActiveIndex(index);
+      }
+    }
+  };
+
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 70,
+  };
+
+  const renderVideo = ({ item, index }) => {
+    return (
       <View
         style={[
-          styles.container,
+          styles.videoContainer,
           {
-            backgroundColor: isDark
-              ? colors.black
-              : colors.background,
+            width: SCREEN_WIDTH,
+            height: SCREEN_HEIGHT,
           },
         ]}
       >
+        {/* VIDEO */}
 
-        {/* ================= HEADER ================= */}
+        {item.video ? (
+          <VideoPlayer
+            source={item.video}
+            isActive={activeIndex === index}
+            loop
+          />
+        ) : item.image ? (
+          <Image
+            source={{ uri: item.image }}
+            style={styles.imagePost}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        {/* BOTTOM OVERLAY */}
 
         <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: isDark
-                ? colors.black
-                : colors.surface,
-              borderBottomColor: isDark
-                ? colors.borderDark
-                : colors.border,
-            },
-          ]}
-        >
-          <Image
-            source={logo}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          pointerEvents="none"
+          style={styles.bottomOverlay}
+        />
 
-          <View style={styles.headerActions}>
-{/* CREATE */}
-<TouchableOpacity
-  style={styles.createButton}
-  onPress={() => navigation.navigate('CreatePost')}
-  activeOpacity={0.8}
->
-              <MessageCircle
-                size={22}
-                color={
-                  isDark
-                    ? colors.white
-                    : colors.black
-                }
-              />
-            </TouchableOpacity>
+        {/* TOP */}
 
-            <TouchableOpacity
-              style={styles.avatar}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.avatarText}>U</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ================= SCROLLABLE CONTENT ================= */}
-
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}
-        >
-
-          {/* ================= STORIES ================= */}
-
-          <View
-            style={[
-              styles.section,
-              {
-                backgroundColor: isDark
-                  ? colors.black
-                  : colors.surface,
-              },
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: isDark
-                      ? colors.white
-                      : colors.text,
-                  },
-                ]}
-              >
-                Stories
-              </Text>
-
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.seeAll}>
-                  See all
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.storiesRow}
-            >
-              {stories.map((story) => (
-                <TouchableOpacity
-                  key={story.id}
-                  style={styles.story}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.storyCircle,
-                      story.own && styles.ownStoryCircle,
-                    ]}
-                  >
-                    {story.own ? (
-                      <View style={styles.plusCircle}>
-                        <Plus
-                          size={20}
-                          color={colors.white}
-                        />
-                      </View>
-                    ) : (
-                      <Text style={styles.storyInitial}>
-                        {story.name.charAt(0)}
-                      </Text>
-                    )}
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.storyName,
-                      {
-                        color: isDark
-                          ? colors.white
-                          : colors.text,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {story.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* ================= CREATE POST ================= */}
-
-          <View
-            style={[
-              styles.composer,
-              {
-                backgroundColor: isDark
-                  ? '#111111'
-                  : colors.surface,
-                borderColor: isDark
-                  ? colors.borderDark
-                  : colors.border,
-              },
-            ]}
-          >
-            <View style={styles.composerTop}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>U</Text>
-              </View>
-
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark
-                      ? '#1A1A1A'
-                      : colors.background,
-                    color: isDark
-                      ? colors.white
-                      : colors.text,
-                  },
-                ]}
-                placeholder="What's on your mind?"
-                placeholderTextColor={colors.textLight}
-                value={postText}
-                onChangeText={setPostText}
-                multiline
-              />
-            </View>
-
-            <View
-              style={[
-                styles.composerDivider,
-                {
-                  backgroundColor: isDark
-                    ? colors.borderDark
-                    : colors.border,
-                },
-              ]}
+        <SafeAreaView style={styles.topArea}>
+          <View style={styles.topBar}>
+            <Image
+              source={require('../../assets/logo1.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
             />
 
-            <View style={styles.composerActions}>
-              <TouchableOpacity
-                style={styles.composerAction}
-                activeOpacity={0.7}
-              >
-                <ImageIcon
-                  size={20}
-                  color={colors.primary}
-                />
-
-                <Text style={styles.actionText}>
-                  Photo
+            <View style={styles.feedTabs}>
+              <TouchableOpacity activeOpacity={0.8}>
+                <Text style={styles.feedTab}>
+                  Following
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.composerAction}
-                activeOpacity={0.7}
-              >
-                <Video
-                  size={20}
-                  color={colors.primary}
-                />
+              <View style={styles.tabDivider} />
 
-                <Text style={styles.actionText}>
-                  Video
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.postButton,
-                  !postText.trim() &&
-                    styles.postButtonDisabled,
-                ]}
-                onPress={handlePost}
-                disabled={!postText.trim()}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.postButtonText}>
-                  Post
+              <TouchableOpacity activeOpacity={0.8}>
+                <Text style={styles.feedTabActive}>
+                  For You
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.messagesButton}
+              onPress={() => navigation.navigate('Messages')}
+              accessibilityRole="button"
+              accessibilityLabel="Open messages"
+              activeOpacity={0.8}
+            >
+              <MessageCircle
+                size={21}
+                color={WHITE}
+              />
+            </TouchableOpacity>
           </View>
+        </SafeAreaView>
 
-          {/* ================= POSTS ================= */}
+        {/* RIGHT SIDE ACTIONS */}
 
-          <View style={styles.postsSection}>
+        <View style={styles.actionsContainer}>
+          {/* CREATOR */}
+
+          <TouchableOpacity
+            style={styles.profileAction}
+            activeOpacity={0.8}
+          >
+            <View style={styles.creatorAvatar}>
+              <Text style={styles.creatorAvatarText}>
+                {item.username.charAt(1).toUpperCase()}
+              </Text>
+            </View>
+
+            {!item.following && (
+              <View style={styles.followBadge}>
+                <Plus
+                  size={12}
+                  color={WHITE}
+                  strokeWidth={3}
+                />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* LIKE */}
+
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => toggleLike(item.id)}
+            activeOpacity={0.8}
+          >
+            <Heart
+              size={34}
+              color={item.liked ? ORANGE : WHITE}
+              fill={item.liked ? ORANGE : 'transparent'}
+            />
+
+            <Text style={styles.actionCount}>
+              {item.likes}
+            </Text>
+          </TouchableOpacity>
+
+          {/* COMMENTS */}
+
+          <TouchableOpacity
+            style={styles.action}
+            activeOpacity={0.8}
+          >
+            <MessageCircle
+              size={34}
+              color={WHITE}
+            />
+
+            <Text style={styles.actionCount}>
+              {item.comments}
+            </Text>
+          </TouchableOpacity>
+
+          {/* SHARE */}
+
+          <TouchableOpacity
+            style={styles.action}
+            activeOpacity={0.8}
+          >
+            <Share2
+              size={33}
+              color={WHITE}
+            />
+
+            <Text style={styles.actionCount}>
+              {item.shares}
+            </Text>
+          </TouchableOpacity>
+
+          {/* FOLLOW */}
+
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => toggleFollow(item.id)}
+            activeOpacity={0.8}
+          >
+            <UserPlus
+              size={31}
+              color={item.following ? ORANGE : WHITE}
+            />
+
             <Text
               style={[
-                styles.sectionTitle,
-                styles.postsTitle,
-                {
-                  color: isDark
-                    ? colors.white
-                    : colors.text,
-                },
+                styles.actionCount,
+                item.following && styles.followingText,
               ]}
             >
-              Posts
+              {item.following
+                ? 'Following'
+                : 'Follow'}
             </Text>
+          </TouchableOpacity>
+        </View>
 
-            {posts.map((post) => (
-              <View
-                key={post.id}
-                style={[
-                  styles.postCard,
-                  {
-                    backgroundColor: isDark
-                      ? '#111111'
-                      : colors.surface,
-                    borderColor: isDark
-                      ? colors.borderDark
-                      : colors.border,
-                  },
-                ]}
-              >
+        {/* CAPTION */}
 
-                {/* POST HEADER */}
+        <View style={styles.captionContainer}>
+          <Text style={styles.username}>
+            {item.username}
+          </Text>
 
-                <View style={styles.postHeader}>
-                  <View style={styles.postUser}>
-                    <View style={styles.postAvatar}>
-                      <Text style={styles.avatarText}>
-                        {post.name.charAt(0)}
-                      </Text>
-                    </View>
+          <Text style={styles.caption}>
+            {item.caption}
+          </Text>
 
-                    <View>
-                      <Text
-                        style={[
-                          styles.postName,
-                          {
-                            color: isDark
-                              ? colors.white
-                              : colors.text,
-                          },
-                        ]}
-                      >
-                        {post.name}
-                      </Text>
+          <View style={styles.musicRow}>
+            <Music2
+              size={16}
+              color={WHITE}
+            />
 
-                      <Text style={styles.postMeta}>
-                        @{post.username} · {post.time}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                  >
-                    <MoreHorizontal
-                      size={22}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* POST CONTENT */}
-
-                <Text
-                  style={[
-                    styles.postText,
-                    {
-                      color: isDark
-                        ? colors.white
-                        : colors.text,
-                    },
-                  ]}
-                >
-                  {post.text}
-                </Text>
-
-                {/* POST STATISTICS */}
-
-                <View style={styles.postStats}>
-                  <Text style={styles.statText}>
-                    {post.likes} likes
-                  </Text>
-
-                  <View style={styles.statsRight}>
-                    <Text style={styles.statText}>
-                      {post.comments} comments
-                    </Text>
-
-                    <Text style={styles.statText}>
-                      {post.shares} shares
-                    </Text>
-                  </View>
-                </View>
-
-                {/* DIVIDER */}
-
-                <View
-                  style={[
-                    styles.postDivider,
-                    {
-                      backgroundColor: isDark
-                        ? colors.borderDark
-                        : colors.border,
-                    },
-                  ]}
-                />
-
-                {/* POST ACTIONS */}
-
-                <View style={styles.postActions}>
-                  <TouchableOpacity
-                    style={styles.postAction}
-                    onPress={() => toggleLike(post.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Heart
-                      size={21}
-                      color={
-                        post.liked
-                          ? colors.primary
-                          : colors.textSecondary
-                      }
-                      fill={
-                        post.liked
-                          ? colors.primary
-                          : 'transparent'
-                      }
-                    />
-
-                    <Text
-                      style={[
-                        styles.postActionText,
-                        post.liked &&
-                          styles.likedText,
-                      ]}
-                    >
-                      Like
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.postAction}
-                    activeOpacity={0.7}
-                  >
-                    <MessageCircle
-                      size={21}
-                      color={colors.textSecondary}
-                    />
-
-                    <Text style={styles.postActionText}>
-                      Comment
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.postAction}
-                    activeOpacity={0.7}
-                  >
-                    <Share2
-                      size={21}
-                      color={colors.textSecondary}
-                    />
-
-                    <Text style={styles.postActionText}>
-                      Share
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            <Text
+              style={styles.musicText}
+              numberOfLines={1}
+            >
+              {item.music}
+            </Text>
           </View>
+        </View>
+      </View>
+    );
+  };
 
-        </ScrollView>
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={feed}
+        renderItem={renderVideo}
+        keyExtractor={(item) => item.id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        snapToInterval={SCREEN_HEIGHT}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
+        onViewableItemsChanged={
+          handleViewableItemsChanged
+        }
+        viewabilityConfig={viewabilityConfig}
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_HEIGHT,
+          offset: SCREEN_HEIGHT * index,
+          index,
+        })}
+      />
 
-        {/* ================= BOTTOM NAVIGATION ================= */}
+      {/* BOTTOM NAVIGATION */}
 
-        <View
-          style={[
-            styles.bottomNav,
-            {
-              backgroundColor: isDark
-                ? colors.black
-                : colors.surface,
-              borderTopColor: isDark
-                ? colors.borderDark
-                : colors.border,
-            },
-          ]}
-        >
-
+      <SafeAreaView style={styles.bottomSafeArea}>
+        <View style={styles.bottomNav}>
           {/* HOME */}
 
           <TouchableOpacity
             style={styles.navItem}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             <Home
-              size={23}
-              color={colors.primary}
-              fill={colors.primary}
+              size={24}
+              color={ORANGE}
+              fill={ORANGE}
             />
 
-            <Text style={styles.navTextActive}>
+            <Text style={styles.navActiveText}>
               Home
             </Text>
           </TouchableOpacity>
@@ -588,28 +414,33 @@ export default function HomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => navigation.navigate('Friends')}
-            activeOpacity={0.7}
+            onPress={() =>
+              navigation.navigate('Friends')
+            }
+            activeOpacity={0.8}
           >
             <Users
-              size={23}
-              color={colors.textSecondary}
+              size={24}
+              color={WHITE}
             />
 
             <Text style={styles.navText}>
-              Friends
+              People
             </Text>
           </TouchableOpacity>
 
           {/* CREATE */}
 
           <TouchableOpacity
-            style={styles.createButton}
-            activeOpacity={0.8}
+            style={styles.createNavButton}
+            onPress={() =>
+              navigation.navigate('CreatePost')
+            }
+            activeOpacity={0.85}
           >
             <Plus
-              size={27}
-              color={colors.white}
+              size={30}
+              color={WHITE}
               strokeWidth={2.5}
             />
           </TouchableOpacity>
@@ -618,11 +449,12 @@ export default function HomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.navItem}
-            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.8}
           >
             <Bell
-              size={23}
-              color={colors.textSecondary}
+              size={24}
+              color={WHITE}
             />
 
             <Text style={styles.navText}>
@@ -630,24 +462,26 @@ export default function HomeScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
 
-          {/* MENU */}
+          {/* PROFILE */}
 
           <TouchableOpacity
             style={styles.navItem}
-            activeOpacity={0.7}
+            onPress={() =>
+              navigation.navigate('UserProfile')
+            }
+            activeOpacity={0.8}
           >
-            <Menu
-              size={23}
-              color={colors.textSecondary}
+            <User
+              size={24}
+              color={WHITE}
             />
 
             <Text style={styles.navText}>
-              Menu
+              Profile
             </Text>
           </TouchableOpacity>
-
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }

@@ -76,6 +76,34 @@ export function AuthProvider({ children }) {
   };
 
   // =========================
+  // UPDATE PROFILE
+  // =========================
+
+  const updateProfile = async (updates) => {
+    if (!token) {
+      throw new Error('You must be logged in to update your profile.');
+    }
+
+    const data = await apiRequest('/user/me', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (data.user) {
+      setUser(data.user);
+      await AsyncStorage.setItem(
+        USER_KEY,
+        JSON.stringify(data.user)
+      );
+    }
+
+    return data;
+  };
+
+  // =========================
   // LOGOUT
   // =========================
 
@@ -158,6 +186,7 @@ export function AuthProvider({ children }) {
         isLoggedIn: !!token && !!user,
         login,
         register,
+        updateProfile,
         logout,
       }}
     >

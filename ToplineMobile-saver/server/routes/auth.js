@@ -72,11 +72,14 @@ router.post("/register", async (req, res) => {
       .trim()
       .toLowerCase();
 
-    // Allow duplicate accounts — no uniqueness check
-    const existingUser = null;
+    const parsedDateOfBirth = new Date(dateOfBirth);
 
-    // Allow duplicate accounts — skip uniqueness check
-    // if (existingUser) { ... }
+    if (Number.isNaN(parsedDateOfBirth.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid date of birth.",
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(
       password,
@@ -87,8 +90,9 @@ router.post("/register", async (req, res) => {
       name: name.trim(),
       username: normalizedUsername,
       email: normalizedEmail,
+      phone: phone ? phone.trim() : "",
       password: hashedPassword,
-      dateOfBirth,
+      dateOfBirth: parsedDateOfBirth,
     });
 
     const token = jwt.sign(
@@ -110,9 +114,11 @@ router.post("/register", async (req, res) => {
         name: user.name,
         username: user.username,
         email: user.email,
+        phone: user.phone,
         dateOfBirth: user.dateOfBirth,
         profilePicture: user.profilePicture,
         bio: user.bio,
+        location: user.location,
       },
     });
   } catch (error) {

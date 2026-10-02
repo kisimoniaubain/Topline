@@ -10,31 +10,93 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 
 import {
   ArrowLeft,
   Image as ImageIcon,
   Video,
+  X,
 } from 'lucide-react-native';
 
+import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../context/AuthContext';
+import { createPost } from '../services/postService';
+import VideoPlayer from '../components/VideoPlayer';
 import { colors } from '../theme';
 import styles from './CreatePostScreen.css';
 
 export default function CreatePostScreen({ navigation }) {
+  const { user, token } = useAuth();
   const [postText, setPostText] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handlePost = () => {
-    if (!postText.trim()) {
+  const pickMedia = async (mediaType) => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission required',
+          'Allow access to your photos and videos to add media to a post.'
+        );
       return;
     }
 
-    // Temporary local action.
-    // We will connect this to MongoDB later.
-    setPostText('');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: [mediaType],
+        allowsEditing: false,
+        quality: 1,
+      });
 
-    navigation.goBack();
+      if (!result.canceled && result.assets?.[0]) {
+        setSelectedMedia({
+          ...result.assets[0],
+          type: result.assets[0].type || mediaType.slice(0, -1),
+        });
+      }
+    } catch (error) {
+      Alert.alert('Unable to open media', error.message);
+    }
   };
+
+  const handlePost = async () => {
+    const text = postText.trim();
+
+    if (!text && !selectedMedia) {
+      return;
+    }
+
+    if (!token) {
+      Alert.alert('Sign in required', 'Sign in before creating a post.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await createPost({
+        text,
+        media: selectedMedia,
+        token,
+      });
+
+      setPostText('');
+      setSelectedMedia(null);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Post failed', error.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canPost = !!postText.trim() || !!selectedMedia;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,16 +129,18 @@ export default function CreatePostScreen({ navigation }) {
           <TouchableOpacity
             style={[
               styles.publishButton,
-              !postText.trim() &&
+              (!canPost || submitting) &&
                 styles.publishButtonDisabled,
             ]}
             onPress={handlePost}
-            disabled={!postText.trim()}
+            disabled={!canPost || submitting}
             activeOpacity={0.8}
           >
-            <Text style={styles.publishText}>
-              Post
-            </Text>
+            {submitting ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={styles.publishText}>Post</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -91,13 +155,13 @@ export default function CreatePostScreen({ navigation }) {
           <View style={styles.userRow}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                U
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </Text>
             </View>
 
             <View>
               <Text style={styles.userName}>
-                You
+                {user?.name || 'You'}
               </Text>
 
               <Text style={styles.visibility}>
@@ -128,6 +192,8 @@ export default function CreatePostScreen({ navigation }) {
             <View style={styles.mediaActions}>
               <TouchableOpacity
                 style={styles.mediaButton}
+                onPress={() => pickMedia('images')}
+                disabled={submitting}
                 activeOpacity={0.7}
               >
                 <ImageIcon
@@ -142,6 +208,8 @@ export default function CreatePostScreen({ navigation }) {
 
               <TouchableOpacity
                 style={styles.mediaButton}
+                onPress={() => pickMedia('videos')}
+                disabled={submitting}
                 activeOpacity={0.7}
               >
                 <Video
@@ -154,6 +222,45 @@ export default function CreatePostScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {selectedMedia ? (
+              <View style={styles.mediaPreview}>
+                {selectedMedia.type === 'video' ? (
+                  <VideoPlayer
+                    source={selectedMedia.uri}
+                    isActive={!submitting}
+                    loop
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: selectedMedia.uri }}
+                    style={styles.mediaPreviewImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+                <View style={styles.mediaPreviewLabel}>
+                  {selectedMedia.type === 'video' ? (
+                    <Video size={15} color={colors.white} />
+                  ) : (
+                    <ImageIcon size={15} color={colors.white} />
+                  )}
+                  <Text style={styles.mediaPreviewText} numberOfLines={1}>
+                    {selectedMedia.fileName ||
+                      (selectedMedia.type === 'video' ? 'Video selected' : 'Photo selected')}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.removeMediaButton}
+                  onPress={() => setSelectedMedia(null)}
+                  accessibilityLabel="Remove selected media"
+                  disabled={submitting}
+                >
+                  <X size={18} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

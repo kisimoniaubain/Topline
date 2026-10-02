@@ -19,15 +19,6 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.get("/api/user/:email", (req, res) => res.json({ email: req.params.email }));
-import multer from "multer";
-import cloudinary from "cloudinary";
-const upload = multer({ dest: "uploads/" });
-cloudinary.config({ cloud_name: "drqqahmxt", api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET });
-app.post("/api/upload/video", upload.single("file"), async (req, res) => {
-  console.log("hit", req.file ? req.file.filename : "none");
-  res.json({ secure_url: "https://res.cloudinary.com/drqqahmxt/video/upload/sample.mp4" });
-});
 
 /* =========================================
    API ROUTES
@@ -45,6 +36,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/user", (await import("./routes/user.js")).default);
 app.use("/api/auth", authRoutes);
+app.use("/api/posts", (await import("./routes/posts.js")).default);
 /* =========================================
    SERVE REACT / VITE FRONTEND
 ========================================= */

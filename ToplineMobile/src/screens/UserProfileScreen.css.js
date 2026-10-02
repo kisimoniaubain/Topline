@@ -9,7 +9,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    height: 60,
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -20,10 +20,12 @@ const styles = StyleSheet.create({
   },
 
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F2F2F2',
+    borderRadius: 19,
   },
 
   headerTitle: {
@@ -251,6 +253,46 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+
+  videoSamples: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+
+  sampleVideoCard: {
+    padding: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  sampleVideoFrame: {
+    height: 210,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: colors.black,
+    borderRadius: 8,
+  },
+
+  sampleVideoControl: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 26,
+    transform: [{ translateX: -26 }, { translateY: -26 }],
+  },
+
+  sampleVideoTitle: {
+    marginTop: spacing.sm,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
 });
 

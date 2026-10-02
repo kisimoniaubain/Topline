@@ -117,7 +117,7 @@ export default function FriendsScreen({ navigation }) {
 
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            Friends
+            People
           </Text>
 
           <Text style={styles.headerSubtitle}>

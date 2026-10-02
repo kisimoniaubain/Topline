@@ -189,6 +189,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+
+  mediaPreview: {
+    height: 220,
+    marginTop: spacing.md,
+    overflow: 'hidden',
+    backgroundColor: colors.black,
+    borderRadius: 8,
+  },
+
+  mediaPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  mediaPreviewLabel: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: 48,
+    bottom: spacing.sm,
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 6,
+  },
+
+  mediaPreviewText: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  removeMediaButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 17,
+  },
 });
 
 export default styles;
