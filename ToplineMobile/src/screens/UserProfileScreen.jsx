@@ -15,6 +15,7 @@ import {
   UserPlus,
   UserCheck,
   MessageCircle,
+  Camera,
   MapPin,
   Calendar,
   Play,
@@ -22,43 +23,48 @@ import {
 } from 'lucide-react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { languageLocales, useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { apiRequest } from '../services/api';
-import { colors } from '../theme';
+import useThemeStyles from '../theme/useThemeStyles';
 import VideoPlayer from '../components/VideoPlayer';
-import styles from './UserProfileScreen.css';
-
-const sampleVideos = [
-  {
-    id: 'sample-flower',
-    title: 'Flower clip',
-    source: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  },
-  {
-    id: 'sample-sintel',
-    title: 'Sintel trailer',
-    source: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
-  },
-  {
-    id: 'sample-bunny',
-    title: 'Big Buck Bunny trailer',
-    source: 'https://media.w3.org/2010/05/bunny/trailer.mp4',
-  },
-];
+import createStyles from './UserProfileScreen.css';
 
 export default function UserProfileScreen({ navigation, route }) {
+  const styles = useThemeStyles(createStyles);
+  const { colors } = useTheme();
+  const { language, t } = useLanguage();
   const { user: authUser, token } = useAuth();
+  const selectedUser = route?.params?.user;
+  const selectedUserId = selectedUser?._id || selectedUser?.id;
   const [profileUser, setProfileUser] = useState(
-    route?.params?.user || authUser || null
+    selectedUser || authUser || null
   );
   const [loading, setLoading] = useState(
-    !route?.params?.user && !!token
+    Boolean(selectedUserId) || (!selectedUser && !!token)
   );
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (route?.params?.user) {
-        setProfileUser(route.params.user);
-        setLoading(false);
+      if (selectedUser) {
+        setProfileUser(selectedUser);
+        if (!selectedUserId) {
+          setLoading(false);
+          return;
+        }
+
+        try {
+          const data = await apiRequest(`/posts/author/${encodeURIComponent(selectedUserId)}`);
+          setProfileUser({
+            ...selectedUser,
+            ...(data.user || {}),
+            posts: data.posts || [],
+          });
+        } catch (error) {
+          console.error('Failed to load profile posts:', error);
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
@@ -69,13 +75,18 @@ export default function UserProfileScreen({ navigation, route }) {
       }
 
       try {
-        const data = await apiRequest('/user/me', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const headers = {
+          Authorization: `Bearer ${token}`,
+        };
+        const [profileData, postsData] = await Promise.all([
+          apiRequest('/user/me', { headers }),
+          apiRequest('/posts/mine', { headers }),
+        ]);
 
-        setProfileUser(data.user || authUser || null);
+        setProfileUser({
+          ...(profileData.user || authUser || {}),
+          posts: postsData.posts || [],
+        });
       } catch (error) {
         console.error('Failed to load profile:', error);
         setProfileUser(authUser || null);
@@ -85,7 +96,7 @@ export default function UserProfileScreen({ navigation, route }) {
     };
 
     fetchProfile();
-  }, [route?.params?.user, token, authUser]);
+  }, [selectedUser, selectedUserId, token, authUser]);
 
   const user =
     profileUser ||
@@ -94,22 +105,22 @@ export default function UserProfileScreen({ navigation, route }) {
       name: 'Topline User',
       username: 'toplineuser',
       profilePicture: '',
-      bio: 'Connect. Share. Stay informed.',
+      bio: t('Connect. Share. Stay informed.'),
       location: 'Kenya',
-      joined: 'Joined recently',
+      joined: t('Joined recently'),
       followers: 0,
       following: 0,
       posts: [],
     };
 
   const [following, setFollowing] = useState(false);
-  const [activeSampleId, setActiveSampleId] = useState(null);
+  const [activeVideoId, setActiveVideoId] = useState(null);
 
   const posts = user.posts || [];
   const authUserId = authUser?._id || authUser?.id;
   const profileUserId = profileUser?._id || profileUser?.id;
   const isOwnProfile =
-    !route?.params?.user ||
+    !selectedUser ||
     Boolean(
       (authUserId &&
         profileUserId &&
@@ -150,7 +161,7 @@ export default function UserProfileScreen({ navigation, route }) {
         >
           {user.username
             ? `@${user.username}`
-            : 'Profile'}
+            : t('Profile')}
         </Text>
 
         <TouchableOpacity
@@ -196,8 +207,21 @@ export default function UserProfileScreen({ navigation, route }) {
               </View>
             )}
 
+            {isOwnProfile ? (
+              <TouchableOpacity
+                style={styles.editAvatarButton}
+                onPress={() => navigation.navigate('EditProfile')}
+                accessibilityRole="button"
+                accessibilityLabel={t('Edit profile photo')}
+                activeOpacity={0.8}
+              >
+                <Camera size={15} color={colors.primaryDark} />
+                <Text style={styles.editAvatarText}>{t('Edit profile photo')}</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <Text style={styles.name}>
-              {user.name || 'Topline User'}
+              {user.name || t('Topline User')}
             </Text>
 
             <Text style={styles.username}>
@@ -231,9 +255,7 @@ export default function UserProfileScreen({ navigation, route }) {
                     color={colors.textSecondary}
                   />
 
-                  <Text style={styles.detailText}>
-                    {user.joined}
-                  </Text>
+                  <Text style={styles.detailText}>{t(user.joined)}</Text>
                 </View>
               ) : null}
             </View>
@@ -245,7 +267,7 @@ export default function UserProfileScreen({ navigation, route }) {
                 {posts.length}
               </Text>
 
-              <Text style={styles.statLabel}>Posts</Text>
+              <Text style={styles.statLabel}>{t('Posts')}</Text>
             </View>
 
             <View style={styles.stat}>
@@ -253,7 +275,7 @@ export default function UserProfileScreen({ navigation, route }) {
                 {user.followers || 0}
               </Text>
 
-              <Text style={styles.statLabel}>Followers</Text>
+              <Text style={styles.statLabel}>{t('Followers')}</Text>
             </View>
 
             <View style={styles.stat}>
@@ -261,7 +283,7 @@ export default function UserProfileScreen({ navigation, route }) {
                 {user.following || 0}
               </Text>
 
-              <Text style={styles.statLabel}>Following</Text>
+              <Text style={styles.statLabel}>{t('Following')}</Text>
             </View>
           </View>
 
@@ -287,7 +309,7 @@ export default function UserProfileScreen({ navigation, route }) {
                     following && styles.followingButtonText,
                   ]}
                 >
-                  {following ? 'Following' : 'Follow'}
+                  {following ? t('Following') : t('Follow')}
                 </Text>
               </TouchableOpacity>
 
@@ -298,13 +320,13 @@ export default function UserProfileScreen({ navigation, route }) {
               >
                 <MessageCircle size={18} color={colors.text} />
 
-                <Text style={styles.messageButtonText}>Message</Text>
+                <Text style={styles.messageButtonText}>{t('Message')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           <View style={styles.postsHeader}>
-            <Text style={styles.postsTitle}>Posts</Text>
+            <Text style={styles.postsTitle}>{t('Posts')}</Text>
           </View>
 
           {posts.length > 0 ? (
@@ -313,6 +335,38 @@ export default function UserProfileScreen({ navigation, route }) {
                 key={post.id || post._id || index}
                 style={styles.post}
               >
+                {post.video ? (
+                  <View style={styles.postVideoFrame}>
+                    <VideoPlayer
+                      source={post.video}
+                      isActive={activeVideoId === String(post._id || post.id)}
+                      loop
+                    />
+                    <TouchableOpacity
+                      style={styles.postVideoControl}
+                      onPress={() => {
+                        const videoId = String(post._id || post.id);
+                        setActiveVideoId((current) =>
+                          current === videoId ? null : videoId
+                        );
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        activeVideoId === String(post._id || post.id)
+                          ? t('Pause posted video')
+                          : t('Play posted video')
+                      }
+                      activeOpacity={0.8}
+                    >
+                      {activeVideoId === String(post._id || post.id) ? (
+                        <Pause size={22} color={colors.white} fill={colors.white} />
+                      ) : (
+                        <Play size={22} color={colors.white} fill={colors.white} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
                 {post.image ? (
                   <Image
                     source={{ uri: post.image }}
@@ -327,67 +381,22 @@ export default function UserProfileScreen({ navigation, route }) {
                 ) : null}
 
                 <Text style={styles.postDate}>
-                  {post.createdAt || 'Recently'}
+                  {post.createdAt
+                    ? new Date(post.createdAt).toLocaleDateString(languageLocales[language] || 'en')
+                    : t('Recently')}
                 </Text>
               </View>
             ))
           ) : (
             <View style={styles.emptyPosts}>
-              <Text style={styles.emptyTitle}>No posts yet</Text>
+              <Text style={styles.emptyTitle}>{t('No posts yet')}</Text>
 
               <Text style={styles.emptyText}>
-                When this user shares something, it will appear here.
+                {t('When this user shares something, it will appear here.')}
               </Text>
             </View>
           )}
 
-          {isOwnProfile && posts.length === 0 ? (
-            <>
-              <View style={styles.postsHeader}>
-                <Text style={styles.postsTitle}>Sample videos</Text>
-              </View>
-
-              <View style={styles.videoSamples}>
-                {sampleVideos.map((sample) => {
-                  const isPlaying = activeSampleId === sample.id;
-
-                  return (
-                    <View key={sample.id} style={styles.sampleVideoCard}>
-                      <View style={styles.sampleVideoFrame}>
-                        <VideoPlayer
-                          source={sample.source}
-                          isActive={isPlaying}
-                          loop
-                        />
-
-                        <TouchableOpacity
-                          style={styles.sampleVideoControl}
-                          onPress={() =>
-                            setActiveSampleId(isPlaying ? null : sample.id)
-                          }
-                          accessibilityRole="button"
-                          accessibilityLabel={
-                            isPlaying ? 'Pause sample video' : 'Play sample video'
-                          }
-                          activeOpacity={0.8}
-                        >
-                          {isPlaying ? (
-                            <Pause size={22} color={colors.white} fill={colors.white} />
-                          ) : (
-                            <Play size={22} color={colors.white} fill={colors.white} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <Text style={styles.sampleVideoTitle}>
-                        {sample.title}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </>
-          ) : null}
         </ScrollView>
       )}
     </SafeAreaView>

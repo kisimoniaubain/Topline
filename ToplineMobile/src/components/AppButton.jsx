@@ -5,7 +5,9 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 const AppButton = ({
   title,
@@ -15,6 +17,8 @@ const AppButton = ({
   variant = 'primary',
 }) => {
   const isOutline = variant === 'outline';
+  const styles = useThemeStyles(createStyles);
+  const { colors } = useTheme();
 
   return (
     <TouchableOpacity
@@ -45,7 +49,7 @@ const AppButton = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   button: {
     minHeight: 52,
     borderRadius: 8,
@@ -60,7 +64,7 @@ const styles = StyleSheet.create({
   },
 
   outlineButton: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.primary,
   },
@@ -74,7 +78,7 @@ const styles = StyleSheet.create({
   },
 
   primaryText: {
-    color: colors.white,
+    color: colors.textOnPrimary,
   },
 
   outlineText: {

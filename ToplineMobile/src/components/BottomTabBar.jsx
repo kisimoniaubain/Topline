@@ -5,16 +5,20 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 const BottomTabBar = ({
   activeTab,
   onTabPress,
 }) => {
+  const styles = useThemeStyles(createStyles);
+  const { t } = useLanguage();
   const tabs = [
-    { name: 'Home', label: 'Home' },
-    { name: 'Profile', label: 'Profile' },
-    { name: 'Settings', label: 'Settings' },
+    { name: 'Home', label: t('Home') },
+    { name: 'Profile', label: t('Profile') },
+    { name: 'Settings', label: t('Settings') },
   ];
 
   return (
@@ -44,10 +48,10 @@ const BottomTabBar = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingVertical: spacing.sm,

@@ -17,8 +17,10 @@ import {
   Users,
 } from 'lucide-react-native';
 
-import { colors } from '../theme';
-import styles from './FriendsScreen.css';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import useThemeStyles from '../theme/useThemeStyles';
+import createStyles from './FriendsScreen.css';
 
 const initialUsers = [
   {
@@ -68,6 +70,9 @@ const initialUsers = [
 ];
 
 export default function FriendsScreen({ navigation }) {
+  const styles = useThemeStyles(createStyles);
+  const { colors } = useTheme();
+  const { language, t } = useLanguage();
   const [search, setSearch] = useState('');
   const [followingUsers, setFollowingUsers] = useState([]);
 
@@ -117,11 +122,11 @@ export default function FriendsScreen({ navigation }) {
 
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            People
+            {t('People')}
           </Text>
 
           <Text style={styles.headerSubtitle}>
-            Find people and connect
+            {t('Find people and connect')}
           </Text>
         </View>
 
@@ -140,8 +145,11 @@ export default function FriendsScreen({ navigation }) {
           />
 
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search people..."
+            style={[
+              styles.searchInput,
+              language === 'ar' && { textAlign: 'right', writingDirection: 'rtl' },
+            ]}
+            placeholder={t('Search people...')}
             placeholderTextColor={colors.textLight}
             value={search}
             onChangeText={setSearch}
@@ -152,11 +160,11 @@ export default function FriendsScreen({ navigation }) {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>
-              People you may know
+              {t('People you may know')}
             </Text>
 
             <Text style={styles.sectionSubtitle}>
-              Discover people on Topline
+              {t('Discover people on Topline')}
             </Text>
           </View>
 
@@ -223,7 +231,7 @@ export default function FriendsScreen({ navigation }) {
                       style={styles.userBio}
                       numberOfLines={1}
                     >
-                      {user.bio}
+                      {t(user.bio)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -259,8 +267,8 @@ export default function FriendsScreen({ navigation }) {
                     ]}
                   >
                     {isFollowing
-                      ? 'Following'
-                      : 'Follow'}
+                      ? t('Following')
+                      : t('Follow')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -274,12 +282,11 @@ export default function FriendsScreen({ navigation }) {
             />
 
             <Text style={styles.emptyTitle}>
-              No people found
+              {t('No people found')}
             </Text>
 
             <Text style={styles.emptyText}>
-              Try searching for another name or
-              username.
+              {t('Try searching for another name or username.')}
             </Text>
           </View>
         )}

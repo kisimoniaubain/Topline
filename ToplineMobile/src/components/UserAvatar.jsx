@@ -5,13 +5,14 @@ import {
   Image,
   StyleSheet,
 } from 'react-native';
-import { colors } from '../theme';
+import useThemeStyles from '../theme/useThemeStyles';
 
 const UserAvatar = ({
   uri,
   name = 'User',
   size = 48,
 }) => {
+  const styles = useThemeStyles(createStyles);
   const initial = name.charAt(0).toUpperCase();
 
   if (uri) {
@@ -48,7 +49,7 @@ const UserAvatar = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   image: {
     backgroundColor: colors.border,
   },

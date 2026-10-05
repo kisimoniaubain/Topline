@@ -1,8 +1,53 @@
 import express from "express";
+import fs from "node:fs/promises";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import User from "../models/User.js";
 
 const router = express.Router();
+const avatarUpload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    if (file.mimetype.startsWith("image/")) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Choose an image file for your profile photo."));
+  },
+});
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "drqqahmxt",
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const authenticateAvatarUpload = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Sign in to update your profile photo." });
+  }
+
+  try {
+    req.userId = jwt.verify(token, process.env.JWT_SECRET).userId;
+    return next();
+  } catch {
+    return res.status(401).json({ message: "Your session has expired." });
+  }
+};
+
+const handleAvatarUpload = (req, res, next) => {
+  avatarUpload.single("avatar")(req, res, (error) => {
+    if (error) {
+      return res.status(400).json({ message: error.message || "Invalid profile photo." });
+    }
+
+    return next();
+  });
+};
 
 router.get("/me", async (req, res) => {
   try {
@@ -19,6 +64,43 @@ router.get("/me", async (req, res) => {
     res.json({ user });
   } catch (e) {
     res.status(401).json({ message: "Invalid token" });
+  }
+});
+
+router.put("/me/avatar", authenticateAvatarUpload, handleAvatarUpload, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Choose a profile photo to upload." });
+    }
+
+    if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(503).json({ message: "Profile photo uploads are not configured on the server." });
+    }
+
+    const uploaded = await cloudinary.uploader.upload(req.file.path, {
+      folder: "topline/avatars",
+      resource_type: "image",
+      transformation: [{ width: 512, height: 512, crop: "fill", gravity: "auto" }],
+    });
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { profilePicture: uploaded.secure_url } },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User account was not found." });
+    }
+
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error("Profile photo upload error:", error);
+    return res.status(500).json({ message: "Unable to update your profile photo." });
+  } finally {
+    if (req.file?.path) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
   }
 });
 

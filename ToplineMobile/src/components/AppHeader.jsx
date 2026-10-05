@@ -3,17 +3,15 @@ import {
   View,
   Image,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AppHeader() {
-  const colorScheme = useColorScheme();
+  const { colors, mode } = useTheme();
 
   const logo =
-    colorScheme === 'dark'
+    mode === 'dark'
       ? require('../../assets/logo1.png')
       : require('../../assets/logo.png');
 
@@ -23,10 +21,7 @@ export default function AppHeader() {
       style={[
         styles.safeArea,
         {
-          backgroundColor:
-            colorScheme === 'dark'
-              ? colors.black
-              : colors.white,
+          backgroundColor: colors.background,
         },
       ]}
     >
@@ -34,14 +29,8 @@ export default function AppHeader() {
         style={[
           styles.header,
           {
-            backgroundColor:
-              colorScheme === 'dark'
-                ? colors.black
-                : colors.white,
-            borderBottomColor:
-              colorScheme === 'dark'
-                ? colors.borderDark
-                : colors.border,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
           },
         ]}
       >

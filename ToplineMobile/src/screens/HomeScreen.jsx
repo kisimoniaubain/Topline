@@ -8,30 +8,29 @@ import {
   FlatList,
   Image,
 } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 import {
   Heart,
-  MessageCircle,
   Bell,
+  MessageCircle,
   Share2,
   UserPlus,
-  Home,
-  Users,
   Plus,
-  User,
   Music2,
 } from 'lucide-react-native';
 
 import VideoPlayer from '../components/VideoPlayer';
+import CommentsScreen from './CommentsScreen';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { getPosts } from '../services/postService';
-import styles from './HomeScreen.css';
+import useThemeStyles from '../theme/useThemeStyles';
+import createStyles from './HomeScreen.css';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } =
   Dimensions.get('window');
-
-const ORANGE = '#F57F17';
-const WHITE = '#FFFFFF';
 
 const videos = [
   {
@@ -43,7 +42,9 @@ const videos = [
       'A sample clip for testing video playback.',
     music: 'MP4 sample',
     likes: 245,
-    comments: 18,
+    comments: 0,
+    localSample: true,
+    localComments: [],
     shares: 12,
     liked: false,
     following: false,
@@ -57,7 +58,9 @@ const videos = [
       'Animated trailer sample.',
     music: 'MP4 sample',
     likes: 128,
-    comments: 8,
+    comments: 0,
+    localSample: true,
+    localComments: [],
     shares: 5,
     liked: false,
     following: false,
@@ -71,7 +74,9 @@ const videos = [
       'A short animated sample clip.',
     music: 'MP4 sample',
     likes: 532,
-    comments: 42,
+    comments: 0,
+    localSample: true,
+    localComments: [],
     shares: 29,
     liked: false,
     following: false,
@@ -79,10 +84,19 @@ const videos = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  const styles = useThemeStyles(createStyles);
+  const { colors, mode } = useTheme();
+  const { t } = useLanguage();
+  const ORANGE = colors.primary;
+  const WHITE = colors.white;
   const { token } = useAuth();
+  const tabBarHeight = useBottomTabBarHeight();
+  const videoHeight = SCREEN_HEIGHT - tabBarHeight;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [feed, setFeed] = useState(videos);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [commentsVisible, setCommentsVisible] = useState(false);
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -90,6 +104,7 @@ export default function HomeScreen({ navigation }) {
         const data = await getPosts(token);
         const savedPosts = (data.posts || []).map((post) => ({
           id: post._id,
+          author: post.author || null,
           video: post.video || null,
           image: post.image || null,
           username: post.author?.username
@@ -98,10 +113,11 @@ export default function HomeScreen({ navigation }) {
           caption: post.text || '',
           music: post.video ? 'Video post' : 'Topline post',
           likes: 0,
-          comments: 0,
+          comments: post.commentsCount || 0,
           shares: 0,
           liked: false,
           following: false,
+          localSample: false,
         }));
 
         setFeed([...savedPosts, ...videos]);
@@ -144,6 +160,33 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  const updateCommentCount = (postId, commentsCount, localComments) => {
+    setFeed((current) =>
+      current.map((item) =>
+        item.id === postId
+          ? {
+              ...item,
+              comments: commentsCount,
+              ...(localComments ? { localComments } : {}),
+            }
+          : item
+      )
+    );
+    setSelectedPost((current) =>
+      current?.id === postId
+        ? {
+            ...current,
+            comments: commentsCount,
+            ...(localComments ? { localComments } : {}),
+          }
+        : current
+    );
+  };
+
+  const handleCommentAdded = (postId, _comment, commentsCount, localComments) => {
+    updateCommentCount(postId, commentsCount, localComments);
+  };
+
   const handleViewableItemsChanged = ({ viewableItems }) => {
     if (viewableItems.length > 0) {
       const index = viewableItems[0].index;
@@ -165,7 +208,7 @@ export default function HomeScreen({ navigation }) {
           styles.videoContainer,
           {
             width: SCREEN_WIDTH,
-            height: SCREEN_HEIGHT,
+            height: videoHeight,
           },
         ]}
       >
@@ -174,7 +217,7 @@ export default function HomeScreen({ navigation }) {
         {item.video ? (
           <VideoPlayer
             source={item.video}
-            isActive={activeIndex === index}
+            isActive={activeIndex === index && !commentsVisible}
             loop
           />
         ) : item.image ? (
@@ -192,47 +235,6 @@ export default function HomeScreen({ navigation }) {
           style={styles.bottomOverlay}
         />
 
-        {/* TOP */}
-
-        <SafeAreaView style={styles.topArea}>
-          <View style={styles.topBar}>
-            <Image
-              source={require('../../assets/logo1.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-
-            <View style={styles.feedTabs}>
-              <TouchableOpacity activeOpacity={0.8}>
-                <Text style={styles.feedTab}>
-                  Following
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.tabDivider} />
-
-              <TouchableOpacity activeOpacity={0.8}>
-                <Text style={styles.feedTabActive}>
-                  For You
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.messagesButton}
-              onPress={() => navigation.navigate('Messages')}
-              accessibilityRole="button"
-              accessibilityLabel="Open messages"
-              activeOpacity={0.8}
-            >
-              <MessageCircle
-                size={21}
-                color={WHITE}
-              />
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-
         {/* RIGHT SIDE ACTIONS */}
 
         <View style={styles.actionsContainer}>
@@ -240,13 +242,31 @@ export default function HomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.profileAction}
+            onPress={() => {
+              const profileOwner = item.author || {
+                name: item.username.replace(/^@/, ''),
+                username: item.username.replace(/^@/, ''),
+                profilePicture: '',
+                posts: [],
+              };
+              navigation.navigate('UserProfile', { user: profileOwner });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('Open profile for {name}', { name: item.username })}
             activeOpacity={0.8}
           >
-            <View style={styles.creatorAvatar}>
-              <Text style={styles.creatorAvatarText}>
-                {item.username.charAt(1).toUpperCase()}
-              </Text>
-            </View>
+            {item.author?.profilePicture ? (
+              <Image
+                source={{ uri: item.author.profilePicture }}
+                style={styles.creatorAvatarImage}
+              />
+            ) : (
+              <View style={styles.creatorAvatar}>
+                <Text style={styles.creatorAvatarText}>
+                  {item.username.charAt(1).toUpperCase()}
+                </Text>
+              </View>
+            )}
 
             {!item.following && (
               <View style={styles.followBadge}>
@@ -281,6 +301,12 @@ export default function HomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.action}
+            onPress={() => {
+              setSelectedPost(item);
+              setCommentsVisible(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('View {count} comments', { count: item.comments })}
             activeOpacity={0.8}
           >
             <MessageCircle
@@ -328,8 +354,8 @@ export default function HomeScreen({ navigation }) {
               ]}
             >
               {item.following
-                ? 'Following'
-                : 'Follow'}
+                ? t('Following')
+                : t('Follow')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -342,7 +368,7 @@ export default function HomeScreen({ navigation }) {
           </Text>
 
           <Text style={styles.caption}>
-            {item.caption}
+            {item.localSample ? t(item.caption) : item.caption}
           </Text>
 
           <View style={styles.musicRow}>
@@ -355,7 +381,7 @@ export default function HomeScreen({ navigation }) {
               style={styles.musicText}
               numberOfLines={1}
             >
-              {item.music}
+              {item.localSample ? t(item.music) : item.music}
             </Text>
           </View>
         </View>
@@ -371,7 +397,7 @@ export default function HomeScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         pagingEnabled
         showsVerticalScrollIndicator={false}
-        snapToInterval={SCREEN_HEIGHT}
+        snapToInterval={videoHeight}
         snapToAlignment="start"
         decelerationRate="fast"
         disableIntervalMomentum
@@ -383,102 +409,53 @@ export default function HomeScreen({ navigation }) {
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
-          length: SCREEN_HEIGHT,
-          offset: SCREEN_HEIGHT * index,
+          length: videoHeight,
+          offset: videoHeight * index,
           index,
         })}
       />
 
-      {/* BOTTOM NAVIGATION */}
+      {commentsVisible && selectedPost ? (
+        <CommentsScreen
+          key={selectedPost.id}
+          visible={commentsVisible}
+          post={selectedPost}
+          onClose={() => setCommentsVisible(false)}
+          onCommentAdded={handleCommentAdded}
+          onCommentCountChanged={updateCommentCount}
+        />
+      ) : null}
 
-      <SafeAreaView style={styles.bottomSafeArea}>
-        <View style={styles.bottomNav}>
-          {/* HOME */}
+      <SafeAreaView style={styles.topArea}>
+        <View style={styles.topBar}>
+          <Image
+            source={mode === 'dark'
+              ? require('../../assets/logo1.png')
+              : require('../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
 
-          <TouchableOpacity
-            style={styles.navItem}
-            activeOpacity={0.8}
-          >
-            <Home
-              size={24}
-              color={ORANGE}
-              fill={ORANGE}
-            />
+          <View style={styles.feedTabs}>
+            <TouchableOpacity activeOpacity={0.8}>
+              <Text style={styles.feedTab}>{t('Following')}</Text>
+            </TouchableOpacity>
 
-            <Text style={styles.navActiveText}>
-              Home
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.tabDivider} />
 
-          {/* FRIENDS */}
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() =>
-              navigation.navigate('Friends')
-            }
-            activeOpacity={0.8}
-          >
-            <Users
-              size={24}
-              color={WHITE}
-            />
-
-            <Text style={styles.navText}>
-              People
-            </Text>
-          </TouchableOpacity>
-
-          {/* CREATE */}
+            <TouchableOpacity activeOpacity={0.8}>
+              <Text style={styles.feedTabActive}>{t('For You')}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
-            style={styles.createNavButton}
-            onPress={() =>
-              navigation.navigate('CreatePost')
-            }
-            activeOpacity={0.85}
-          >
-            <Plus
-              size={30}
-              color={WHITE}
-              strokeWidth={2.5}
-            />
-          </TouchableOpacity>
-
-          {/* ALERTS */}
-
-          <TouchableOpacity
-            style={styles.navItem}
+            style={styles.messagesButton}
             onPress={() => navigation.navigate('Notifications')}
+            accessibilityRole="button"
+            accessibilityLabel={t('Open alerts')}
             activeOpacity={0.8}
           >
-            <Bell
-              size={24}
-              color={WHITE}
-            />
-
-            <Text style={styles.navText}>
-              Alerts
-            </Text>
-          </TouchableOpacity>
-
-          {/* PROFILE */}
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() =>
-              navigation.navigate('UserProfile')
-            }
-            activeOpacity={0.8}
-          >
-            <User
-              size={24}
-              color={WHITE}
-            />
-
-            <Text style={styles.navText}>
-              Profile
-            </Text>
+            <Bell size={21} color={WHITE} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>

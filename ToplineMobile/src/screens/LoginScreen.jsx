@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -15,8 +16,14 @@ import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 export default function LoginScreen() {
+  const styles = useThemeStyles(createStyles);
+  const { mode } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
 
   const [identifier, setIdentifier] = useState('');
@@ -28,8 +35,8 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!identifier.trim() || !password) {
       Alert.alert(
-        'Missing information',
-        'Please enter your email/username and password.'
+        t('Missing information'),
+        t('Please enter your email/username and password.')
       );
       return;
     }
@@ -43,8 +50,8 @@ export default function LoginScreen() {
       );
     } catch (error) {
       Alert.alert(
-        'Login failed',
-        error.message || 'Unable to log in.'
+        t('Login failed'),
+        t(error.message || 'Unable to log in.')
       );
     } finally {
       setSubmitting(false);
@@ -65,27 +72,32 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
-          <Text style={styles.logo}>
-            TOPLINE
-          </Text>
+          <Image
+            source={mode === 'dark'
+              ? require('../../assets/icon1.png')
+              : require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel={t('Topline app icon')}
+          />
 
           <Text style={styles.tagline}>
-            Connect. Share. Stay informed.
+            {t('Connect. Share. Stay informed.')}
           </Text>
         </View>
 
         <View style={styles.form}>
           <Text style={styles.title}>
-            Welcome back
+            {t('Welcome back')}
           </Text>
 
           <Text style={styles.subtitle}>
-            Sign in to continue to Topline.
+            {t('Sign in to continue to Topline.')}
           </Text>
 
           <AppInput
-            label="Email or Username"
-            placeholder="Enter your email or username"
+            label={t('Email or Username')}
+            placeholder={t('Enter your email or username')}
             value={identifier}
             onChangeText={setIdentifier}
             autoCapitalize="none"
@@ -93,8 +105,8 @@ export default function LoginScreen() {
           />
 
           <AppInput
-            label="Password"
-            placeholder="Enter your password"
+            label={t('Password')}
+            placeholder={t('Enter your password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -103,15 +115,15 @@ export default function LoginScreen() {
           <AppButton
             title={
               submitting
-                ? 'Signing In...'
-                : 'Sign In'
+                ? t('Signing In...')
+                : t('Sign In')
             }
             onPress={handleLogin}
             disabled={submitting}
           />
 
           <AppButton
-            title="Create Account"
+            title={t('Create Account')}
             variant="outline"
             onPress={() =>
               navigation.navigate('Register')
@@ -124,10 +136,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: colors.background,
   },
 
   content: {
@@ -141,35 +153,33 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
 
-  logo: {
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: 3,
-    color: '#F57F17',
+  logoImage: {
+    width: 112,
+    height: 112,
   },
 
   tagline: {
     fontSize: 14,
-    color: '#6B6B6B',
+    color: colors.textSecondary,
     marginTop: 8,
   },
 
   form: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
     padding: 20,
   },
 
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#0A0A0A',
+    color: colors.text,
   },
 
   subtitle: {
     fontSize: 16,
-    color: '#6B6B6B',
+    color: colors.textSecondary,
     marginTop: 4,
     marginBottom: 24,
   },

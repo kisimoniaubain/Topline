@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -16,8 +17,14 @@ import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 export default function RegisterScreen() {
+  const styles = useThemeStyles(createStyles);
+  const { mode } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
 
   const { register } = useAuth();
@@ -40,8 +47,8 @@ export default function RegisterScreen() {
       !dateOfBirth.trim()
     ) {
       Alert.alert(
-        'Missing information',
-        'Please fill in all required fields.'
+        t('Missing information'),
+        t('Please fill in all required fields.')
       );
 
       return;
@@ -68,9 +75,8 @@ export default function RegisterScreen() {
        */
     } catch (error) {
       Alert.alert(
-        'Registration failed',
-        error.message ||
-          'Unable to create your account.'
+        t('Registration failed'),
+        t(error.message || 'Unable to create your account.')
       );
     } finally {
       setSubmitting(false);
@@ -92,42 +98,47 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoContainer}>
-          <Text style={styles.logo}>
-            TOPLINE
-          </Text>
+          <Image
+            source={mode === 'dark'
+              ? require('../../assets/logo1.png')
+              : require('../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel={t('Topline')}
+          />
 
           <Text style={styles.tagline}>
-            Create your account
+            {t('Create your account')}
           </Text>
         </View>
 
         <View style={styles.form}>
           <Text style={styles.title}>
-            Create Account
+            {t('Create Account')}
           </Text>
 
           <Text style={styles.subtitle}>
-            Join Topline and connect with others.
+            {t('Join Topline and connect with others.')}
           </Text>
 
           <AppInput
-            label="Full Name"
-            placeholder="Enter your full name"
+            label={t('Full Name')}
+            placeholder={t('Enter your full name')}
             value={name}
             onChangeText={setName}
           />
 
           <AppInput
-            label="Username"
-            placeholder="Choose a username"
+            label={t('Username')}
+            placeholder={t('Choose a username')}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
           />
 
           <AppInput
-            label="Email"
-            placeholder="Enter your email"
+            label={t('Email')}
+            placeholder={t('Enter your email')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -135,23 +146,23 @@ export default function RegisterScreen() {
           />
 
           <AppInput
-            label="Phone"
-            placeholder="Enter your phone number"
+            label={t('Phone')}
+            placeholder={t('Enter your phone number')}
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
 
           <AppInput
-            label="Date of Birth"
+            label={t('Date of Birth')}
             placeholder="YYYY-MM-DD"
             value={dateOfBirth}
             onChangeText={setDateOfBirth}
           />
 
           <AppInput
-            label="Password"
-            placeholder="Create a password"
+            label={t('Password')}
+            placeholder={t('Create a password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -160,15 +171,15 @@ export default function RegisterScreen() {
           <AppButton
             title={
               submitting
-                ? 'Creating Account...'
-                : 'Create Account'
+                ? t('Creating Account...')
+                : t('Create Account')
             }
             onPress={handleRegister}
             disabled={submitting}
           />
 
           <AppButton
-            title="Already have an account? Sign In"
+            title={t('Already have an account? Sign In')}
             variant="outline"
             onPress={() =>
               navigation.navigate('Login')
@@ -181,10 +192,10 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: colors.background,
   },
 
   content: {
@@ -198,35 +209,33 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
 
-  logo: {
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: 3,
-    color: '#F57F17',
+  logoImage: {
+    width: 164,
+    height: 48,
   },
 
   tagline: {
     fontSize: 14,
-    color: '#6B6B6B',
+    color: colors.textSecondary,
     marginTop: 8,
   },
 
   form: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
     padding: 20,
   },
 
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#0A0A0A',
+    color: colors.text,
   },
 
   subtitle: {
     fontSize: 16,
-    color: '#6B6B6B',
+    color: colors.textSecondary,
     marginTop: 4,
     marginBottom: 24,
   },

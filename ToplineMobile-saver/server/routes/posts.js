@@ -1,6 +1,7 @@
 import express from "express";
 import fs from "node:fs/promises";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import Post from "../models/Post.js";
@@ -24,6 +25,49 @@ cloudinary.config({
 	cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "drqqahmxt",
 	api_key: process.env.CLOUDINARY_API_KEY,
 	api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+router.get("/mine", async (req, res) => {
+	try {
+		const token = req.headers.authorization?.split(" ")[1];
+		if (!token) {
+			return res.status(401).json({ message: "Sign in to view your posts." });
+		}
+
+		const decoded = jwt.verify(token, process.env.JWT_SECRET);
+		const posts = await Post.find({ author: decoded.userId })
+			.sort({ createdAt: -1 })
+			.populate("author", "name username profilePicture");
+
+		return res.json({ posts });
+	} catch (error) {
+		return res.status(401).json({ message: error.message || "Unable to load your posts." });
+	}
+});
+
+router.get("/author/:authorId", async (req, res) => {
+	try {
+		const { authorId } = req.params;
+		if (!mongoose.Types.ObjectId.isValid(authorId)) {
+			return res.status(400).json({ message: "Invalid user ID." });
+		}
+
+		const author = await User.findById(authorId)
+			.select("name username profilePicture bio location createdAt")
+			.lean();
+		if (!author) {
+			return res.status(404).json({ message: "User not found." });
+		}
+
+		const posts = await Post.find({ author: authorId })
+			.sort({ createdAt: -1 })
+			.populate("author", "name username profilePicture");
+
+		return res.json({ user: author, posts });
+	} catch (error) {
+		console.error("Load author posts error:", error);
+		return res.status(500).json({ message: "Unable to load profile posts." });
+	}
 });
 
 router.get("/", async (_req, res) => {

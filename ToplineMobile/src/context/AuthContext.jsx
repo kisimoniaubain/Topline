@@ -103,6 +103,34 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const updateAvatar = async (uri, mimeType = 'image/jpeg') => {
+    if (!token) {
+      throw new Error('You must be logged in to update your profile photo.');
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', {
+      uri,
+      name: `profile-avatar.${mimeType.split('/')[1] || 'jpg'}`,
+      type: mimeType,
+    });
+
+    const data = await apiRequest('/user/me/avatar', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (data.user) {
+      setUser(data.user);
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+
+    return data;
+  };
+
   // =========================
   // LOGOUT
   // =========================
@@ -154,7 +182,7 @@ export function AuthProvider({ children }) {
             JSON.stringify(data.user)
           );
         }
-      } catch (error) {
+      } catch (_error) {
         await AsyncStorage.multiRemove([
           TOKEN_KEY,
           USER_KEY,
@@ -174,7 +202,7 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    loadStoredAuth();
+    Promise.resolve().then(loadStoredAuth);
   }, []);
 
   return (
@@ -187,6 +215,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         updateProfile,
+        updateAvatar,
         logout,
       }}
     >

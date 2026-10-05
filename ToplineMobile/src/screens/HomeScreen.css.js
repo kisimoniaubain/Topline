@@ -1,13 +1,13 @@
 import { StyleSheet } from 'react-native';
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background,
   },
 
   videoContainer: {
-    backgroundColor: '#000000',
+    backgroundColor: colors.black,
     position: 'relative',
   },
 
@@ -33,6 +33,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
+    elevation: 10,
   },
 
   topBar: {
@@ -55,13 +57,13 @@ const styles = StyleSheet.create({
   },
 
   feedTab: {
-    color: '#BDBDBD',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },
 
   feedTabActive: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -69,7 +71,7 @@ const styles = StyleSheet.create({
   tabDivider: {
     width: 1,
     height: 15,
-    backgroundColor: '#777777',
+    backgroundColor: colors.textLight,
   },
 
   messagesButton: {
@@ -77,10 +79,6 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 18,
   },
 
   actionsContainer: {
@@ -102,15 +100,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F57F17',
+    backgroundColor: colors.primary,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  creatorAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+
   creatorAvatarText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 19,
     fontWeight: '800',
   },
@@ -121,11 +127,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#F57F17',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: colors.black,
   },
 
   action: {
@@ -136,7 +142,7 @@ const styles = StyleSheet.create({
   },
 
   actionCount: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 5,
@@ -149,7 +155,7 @@ const styles = StyleSheet.create({
   },
 
   followingText: {
-    color: '#F57F17',
+    color: colors.primary,
   },
 
   captionContainer: {
@@ -160,7 +166,7 @@ const styles = StyleSheet.create({
   },
 
   username: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 7,
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
   },
 
   caption: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 10,
@@ -192,60 +198,13 @@ const styles = StyleSheet.create({
   },
 
   musicText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 13,
     marginLeft: 7,
     flex: 1,
     fontWeight: '600',
   },
 
-  bottomSafeArea: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-
-  bottomNav: {
-    height: 72,
-    backgroundColor: 'rgba(0, 0, 0, 0.94)',
-    borderTopWidth: 1,
-    borderTopColor: '#252525',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 7,
-  },
-
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  navText: {
-    color: '#BDBDBD',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-
-  navActiveText: {
-    color: '#F57F17',
-    fontSize: 10,
-    fontWeight: '800',
-    marginTop: 4,
-  },
-
-  createNavButton: {
-    width: 52,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#F57F17',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
-  },
 });
 
-export default styles;
+export default createStyles;

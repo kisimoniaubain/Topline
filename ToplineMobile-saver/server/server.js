@@ -37,6 +37,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/user", (await import("./routes/user.js")).default);
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", (await import("./routes/posts.js")).default);
+app.use("/api/comments", (await import("./routes/comments.js")).default);
 /* =========================================
    SERVE REACT / VITE FRONTEND
 ========================================= */

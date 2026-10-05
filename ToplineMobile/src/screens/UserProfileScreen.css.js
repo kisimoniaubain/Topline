@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F2F2',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 19,
   },
 
@@ -70,6 +70,20 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: '800',
     color: colors.white,
+  },
+
+  editAvatarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+
+  editAvatarText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primaryDark,
   },
 
   name: {
@@ -255,27 +269,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  videoSamples: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-
-  sampleVideoCard: {
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
-  sampleVideoFrame: {
+  postVideoFrame: {
     height: 210,
+    marginBottom: spacing.sm,
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: colors.black,
     borderRadius: 8,
   },
 
-  sampleVideoControl: {
+  postVideoControl: {
     position: 'absolute',
     top: '50%',
     left: '50%',
@@ -288,12 +291,6 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -26 }, { translateY: -26 }],
   },
 
-  sampleVideoTitle: {
-    marginTop: spacing.sm,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
 });
 
-export default styles;
+export default createStyles;

@@ -2,15 +2,30 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 const LoadingScreen = ({ message = 'Loading...' }) => {
+  const styles = useThemeStyles(createStyles);
+  const { colors, mode } = useTheme();
+  const { t } = useLanguage();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>TOPLINE</Text>
+      <Image
+        source={mode === 'dark'
+          ? require('../../assets/logo1.png')
+          : require('../../assets/logo.png')}
+        style={styles.logoImage}
+        resizeMode="contain"
+        accessibilityLabel="Topline"
+      />
 
       <ActivityIndicator
         size="large"
@@ -18,12 +33,12 @@ const LoadingScreen = ({ message = 'Loading...' }) => {
         style={styles.loader}
       />
 
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{t(message)}</Text>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -32,11 +47,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
 
-  logo: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: 2,
-    color: colors.primary,
+  logoImage: {
+    width: 170,
+    height: 52,
   },
 
   loader: {

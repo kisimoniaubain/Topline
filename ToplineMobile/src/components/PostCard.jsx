@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import useThemeStyles from '../theme/useThemeStyles';
 import UserAvatar from './UserAvatar';
 
 const PostCard = ({
@@ -13,6 +14,8 @@ const PostCard = ({
   avatar,
   createdAt,
 }) => {
+  const styles = useThemeStyles(createStyles);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -36,9 +39,9 @@ const PostCard = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,

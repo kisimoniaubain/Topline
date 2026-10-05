@@ -5,7 +5,10 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import useThemeStyles from '../theme/useThemeStyles';
 
 const AppInput = ({
   label,
@@ -17,12 +20,20 @@ const AppInput = ({
   autoCapitalize = 'none',
   error,
 }) => {
+  const styles = useThemeStyles(createStyles);
+  const { colors } = useTheme();
+  const { language } = useLanguage();
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
 
       <TextInput
-        style={[styles.input, error && styles.errorInput]}
+        style={[
+          styles.input,
+          error && styles.errorInput,
+          language === 'ar' && { textAlign: 'right', writingDirection: 'rtl' },
+        ]}
         placeholder={placeholder}
         placeholderTextColor={colors.textLight}
         value={value}
@@ -37,7 +48,7 @@ const AppInput = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.md,
   },
@@ -53,7 +64,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.inputBackground,
     paddingHorizontal: spacing.md,
     color: colors.text,
     fontSize: 16,

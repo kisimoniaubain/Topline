@@ -7,10 +7,15 @@ import {
 } from 'react-native';
 import { ArrowLeft, MessageCircle, Users } from 'lucide-react-native';
 
-import { colors } from '../theme';
-import styles from './MessagesScreen.css';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import useThemeStyles from '../theme/useThemeStyles';
+import createStyles from './MessagesScreen.css';
 
 export default function MessagesScreen({ navigation, route }) {
+	const styles = useThemeStyles(createStyles);
+	const { colors } = useTheme();
+	const { t } = useLanguage();
 	const contact = route?.params?.user;
 
 	return (
@@ -20,13 +25,13 @@ export default function MessagesScreen({ navigation, route }) {
 					style={styles.headerButton}
 					onPress={() => navigation.goBack()}
 					accessibilityRole="button"
-					accessibilityLabel="Go back"
+					accessibilityLabel={t('Go back')}
 				>
 					<ArrowLeft size={23} color={colors.text} />
 				</TouchableOpacity>
 
 				<Text style={styles.headerTitle} numberOfLines={1}>
-					{contact?.name || 'Messages'}
+					{contact?.name || t('Messages')}
 				</Text>
 
 				<View style={styles.headerButton} />
@@ -38,12 +43,12 @@ export default function MessagesScreen({ navigation, route }) {
 				</View>
 
 				<Text style={styles.emptyTitle}>
-					{contact ? 'No messages yet' : 'No conversations yet'}
+					{contact ? t('No messages yet') : t('No conversations yet')}
 				</Text>
 				<Text style={styles.emptyDescription}>
 					{contact
-						? `Your conversation with ${contact.name || 'this person'} will appear here.`
-						: 'Your conversations will appear here.'}
+						? t('Your conversation with {name} will appear here.', { name: contact.name || t('this person') })
+						: t('Your conversations will appear here.')}
 				</Text>
 
 				{!contact ? (
@@ -53,7 +58,7 @@ export default function MessagesScreen({ navigation, route }) {
 						activeOpacity={0.8}
 					>
 						<Users size={18} color={colors.white} />
-						<Text style={styles.actionText}>Find people</Text>
+						<Text style={styles.actionText}>{t('Find people')}</Text>
 					</TouchableOpacity>
 				) : null}
 			</View>

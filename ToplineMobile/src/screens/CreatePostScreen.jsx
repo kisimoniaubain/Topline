@@ -24,12 +24,17 @@ import {
 
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { createPost } from '../services/postService';
 import VideoPlayer from '../components/VideoPlayer';
-import { colors } from '../theme';
-import styles from './CreatePostScreen.css';
+import useThemeStyles from '../theme/useThemeStyles';
+import createStyles from './CreatePostScreen.css';
 
 export default function CreatePostScreen({ navigation }) {
+  const styles = useThemeStyles(createStyles);
+  const { colors } = useTheme();
+  const { language, t } = useLanguage();
   const { user, token } = useAuth();
   const [postText, setPostText] = useState('');
   const [selectedMedia, setSelectedMedia] = useState(null);
@@ -42,8 +47,8 @@ export default function CreatePostScreen({ navigation }) {
 
       if (!permission.granted) {
         Alert.alert(
-          'Permission required',
-          'Allow access to your photos and videos to add media to a post.'
+          t('Permission required'),
+          t('Allow access to your photos and videos to add media to a post.')
         );
       return;
     }
@@ -61,7 +66,7 @@ export default function CreatePostScreen({ navigation }) {
         });
       }
     } catch (error) {
-      Alert.alert('Unable to open media', error.message);
+      Alert.alert(t('Unable to open media'), t(error.message));
     }
   };
 
@@ -73,7 +78,7 @@ export default function CreatePostScreen({ navigation }) {
     }
 
     if (!token) {
-      Alert.alert('Sign in required', 'Sign in before creating a post.');
+      Alert.alert(t('Sign in required'), t('Sign in before creating a post.'));
       return;
     }
 
@@ -90,7 +95,7 @@ export default function CreatePostScreen({ navigation }) {
       setSelectedMedia(null);
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Post failed', error.message || 'Please try again.');
+      Alert.alert(t('Post failed'), t(error.message || 'Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +128,7 @@ export default function CreatePostScreen({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            Create Post
+            {t('Create Post')}
           </Text>
 
           <TouchableOpacity
@@ -139,7 +144,7 @@ export default function CreatePostScreen({ navigation }) {
             {submitting ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={styles.publishText}>Post</Text>
+              <Text style={styles.publishText}>{t('Post')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -161,11 +166,11 @@ export default function CreatePostScreen({ navigation }) {
 
             <View>
               <Text style={styles.userName}>
-                {user?.name || 'You'}
+                {user?.name || t('You')}
               </Text>
 
               <Text style={styles.visibility}>
-                Everyone can see this post
+                {t('Everyone can see this post')}
               </Text>
             </View>
           </View>
@@ -173,8 +178,11 @@ export default function CreatePostScreen({ navigation }) {
           {/* TEXT */}
 
           <TextInput
-            style={styles.textInput}
-            placeholder="What's on your mind?"
+            style={[
+              styles.textInput,
+              language === 'ar' && { textAlign: 'right', writingDirection: 'rtl' },
+            ]}
+            placeholder={t("What's on your mind?")}
             placeholderTextColor={colors.textLight}
             value={postText}
             onChangeText={setPostText}
@@ -186,7 +194,7 @@ export default function CreatePostScreen({ navigation }) {
 
           <View style={styles.mediaSection}>
             <Text style={styles.mediaTitle}>
-              Add to your post
+              {t('Add to your post')}
             </Text>
 
             <View style={styles.mediaActions}>
@@ -202,7 +210,7 @@ export default function CreatePostScreen({ navigation }) {
                 />
 
                 <Text style={styles.mediaText}>
-                  Photo
+                  {t('Photo')}
                 </Text>
               </TouchableOpacity>
 
@@ -218,7 +226,7 @@ export default function CreatePostScreen({ navigation }) {
                 />
 
                 <Text style={styles.mediaText}>
-                  Video
+                  {t('Video')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -247,14 +255,14 @@ export default function CreatePostScreen({ navigation }) {
                   )}
                   <Text style={styles.mediaPreviewText} numberOfLines={1}>
                     {selectedMedia.fileName ||
-                      (selectedMedia.type === 'video' ? 'Video selected' : 'Photo selected')}
+                      t(selectedMedia.type === 'video' ? 'Video selected' : 'Photo selected')}
                   </Text>
                 </View>
 
                 <TouchableOpacity
                   style={styles.removeMediaButton}
                   onPress={() => setSelectedMedia(null)}
-                  accessibilityLabel="Remove selected media"
+                  accessibilityLabel={t('Remove selected media')}
                   disabled={submitting}
                 >
                   <X size={18} color={colors.white} />
