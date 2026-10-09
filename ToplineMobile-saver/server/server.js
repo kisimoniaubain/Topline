@@ -34,6 +34,13 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/", (_req, res) => {
+  res.json({
+    success: true,
+    message: "Topline API is live. Use /api/health to check service health.",
+  });
+});
+
 app.use("/api/user", (await import("./routes/user.js")).default);
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", (await import("./routes/posts.js")).default);
