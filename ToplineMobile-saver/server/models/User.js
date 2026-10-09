@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    lastActiveAt: {
+      type: Date,
+      default: null,
+    },
+
     password: {
       type: String,
       required: true,
@@ -36,6 +41,12 @@ const userSchema = new mongoose.Schema(
     dateOfBirth: {
       type: Date,
       required: true,
+    },
+
+    gender: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     profilePicture: {

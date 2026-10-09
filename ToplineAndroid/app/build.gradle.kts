@@ -5,7 +5,7 @@ plugins {
 }
 
 val toplineApiBaseUrl = providers.gradleProperty("TOPLINE_API_BASE_URL")
-    .orElse("http://192.168.1.225:5000/api/")
+    .orElse("https://topline-api.onrender.com/api/")
     .get()
     .trimEnd('/') + "/"
 

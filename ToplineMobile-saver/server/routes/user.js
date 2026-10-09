@@ -3,6 +3,12 @@ import fs from "node:fs/promises";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
+import Comment from "../models/Comment.js";
+import Friend from "../models/Friend.js";
+import Like from "../models/Like.js";
+import Message from "../models/Message.js";
+import Notification from "../models/Notification.js";
+import Post from "../models/Post.js";
 import User from "../models/User.js";
 
 const router = express.Router();
@@ -163,6 +169,44 @@ router.put("/me", async (req, res) => {
   } catch (e) {
     console.error("Update profile error:", e);
     res.status(400).json({ message: e.message || "Profile update failed" });
+  }
+});
+
+router.delete("/me", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ message: "Sign in to delete your account." });
+    }
+
+    let userId;
+    try {
+      userId = jwt.verify(token, process.env.JWT_SECRET).userId;
+    } catch {
+      return res.status(401).json({ message: "Your session has expired." });
+    }
+
+    const user = await User.findById(userId).select("_id");
+    if (!user) {
+      return res.status(404).json({ message: "Account not found." });
+    }
+
+    const posts = await Post.find({ author: userId }).select("_id").lean();
+    const postIds = posts.map(({ _id }) => _id);
+    await Promise.all([
+      Post.deleteMany({ author: userId }),
+      Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: postIds } }] }),
+      Like.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      Friend.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
+      Message.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] }),
+      Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }),
+    ]);
+    await user.deleteOne();
+
+    return res.json({ success: true, message: "Account and associated app data deleted." });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    return res.status(500).json({ message: "Unable to delete your account and its app data." });
   }
 });
 

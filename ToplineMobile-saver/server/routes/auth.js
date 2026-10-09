@@ -49,6 +49,7 @@ router.post("/register", async (req, res) => {
       confirmationCode,
       password,
       dateOfBirth,
+      gender,
     } = req.body;
 
     if (
@@ -91,6 +92,7 @@ router.post("/register", async (req, res) => {
       username: normalizedUsername,
       email: normalizedEmail,
       phone: phone ? phone.trim() : "",
+      gender: typeof gender === "string" ? gender.trim() : "",
       password: hashedPassword,
       dateOfBirth: parsedDateOfBirth,
     });
@@ -116,6 +118,7 @@ router.post("/register", async (req, res) => {
         email: user.email,
         phone: user.phone,
         dateOfBirth: user.dateOfBirth,
+        gender: user.gender,
         profilePicture: user.profilePicture,
         bio: user.bio,
         location: user.location,
@@ -195,6 +198,7 @@ router.post("/login", async (req, res) => {
         username: user.username,
         email: user.email,
         dateOfBirth: user.dateOfBirth,
+        gender: user.gender,
         profilePicture: user.profilePicture,
         bio: user.bio,
       },

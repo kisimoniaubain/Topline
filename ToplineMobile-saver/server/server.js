@@ -38,6 +38,10 @@ app.use("/api/user", (await import("./routes/user.js")).default);
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", (await import("./routes/posts.js")).default);
 app.use("/api/comments", (await import("./routes/comments.js")).default);
+app.use("/api/likes", (await import("./routes/likes.js")).default);
+app.use("/api/friends", (await import("./routes/friends.js")).default);
+app.use("/api/messages", (await import("./routes/messages.js")).default);
+app.use("/api/notifications", (await import("./routes/notifications.js")).default);
 /* =========================================
    SERVE REACT / VITE FRONTEND
 ========================================= */
@@ -58,15 +62,6 @@ app.use((req, res, next) => {
   }
 
   res.sendFile(path.join(distPath, "index.html"));
-});
-
-mongoose.connection.on("connected", async () => {
-  try {
-    await mongoose.connection.collection("users").dropIndexes();
-    console.log("Dropped user indexes");
-  } catch (e) {
-    console.log("Index drop skipped:", e.message);
-  }
 });
 
 /* =========================================
