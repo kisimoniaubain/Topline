@@ -8,6 +8,7 @@ import Friend from "../models/Friend.js";
 import Like from "../models/Like.js";
 import Message from "../models/Message.js";
 import Notification from "../models/Notification.js";
+import PushDevice from "../models/PushDevice.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 
@@ -200,6 +201,7 @@ router.delete("/me", async (req, res) => {
       Friend.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
       Message.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] }),
       Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }),
+      PushDevice.deleteMany({ user: userId }),
     ]);
     await user.deleteOne();
 

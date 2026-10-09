@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
+import PushDevice from "../models/PushDevice.js";
 
 const router = express.Router();
 
@@ -21,6 +22,57 @@ const getAuthenticatedUserId = (req) => {
     throw error;
   }
 };
+
+router.post("/devices", async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const token = typeof req.body.token === "string" ? req.body.token.trim() : "";
+    if (token.length < 20 || token.length > 4096) {
+      return res.status(400).json({ message: "Invalid push notification device token." });
+    }
+
+    await PushDevice.findOneAndUpdate(
+      { token },
+      {
+        $set: {
+          user: userId,
+          token,
+          platform: "android",
+          lastRegisteredAt: new Date(),
+        },
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+    return res.status(200).json({ success: true, message: "This device is registered for notifications." });
+  } catch (error) {
+    if (!error.status) {
+      console.error("Register push device error:", error);
+    }
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to register this device for notifications.",
+    });
+  }
+});
+
+router.delete("/devices", async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const token = typeof req.body.token === "string" ? req.body.token.trim() : "";
+    if (!token) {
+      return res.status(400).json({ message: "Device token is required." });
+    }
+
+    await PushDevice.deleteOne({ user: userId, token });
+    return res.json({ success: true, message: "This device was unregistered for notifications." });
+  } catch (error) {
+    if (!error.status) {
+      console.error("Unregister push device error:", error);
+    }
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to unregister this device.",
+    });
+  }
+});
 
 router.get("/", async (req, res) => {
   try {
