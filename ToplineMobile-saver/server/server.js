@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { existsSync } from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -57,21 +58,26 @@ app.use("/api/notifications", (await import("./routes/notifications.js")).defaul
 
 const distPath = path.join(__dirname, "..", "dist");
 
-app.use(express.static(distPath));
+if (existsSync(path.join(distPath, "index.html"))) {
+  app.use(express.static(distPath));
 
-/*
-  React Router fallback.
-  API routes are handled above.
-  All other routes return the React app.
-*/
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
 
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api/")) {
-    return next();
-  }
-
-  res.sendFile(path.join(distPath, "index.html"));
-});
+    res.sendFile(path.join(distPath, "index.html"), (error) => {
+      if (error) next(error);
+    });
+  });
+} else {
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      message: "Route not found.",
+    });
+  });
+}
 
 /* =========================================
    START SERVER
