@@ -36,7 +36,7 @@ export default function VideoPlayer({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
+    backgroundColor: '#000000fd',
   },
 
   video: {

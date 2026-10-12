@@ -1,0 +1,4 @@
+<resources>
+    <string name="topline_notification_channel_id">topline_activity_notifications</string>
+    <string name="topline_notification_channel_name">Topline notifications</string>
+</resources>

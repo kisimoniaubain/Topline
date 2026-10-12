@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.Topline" parent="Theme.Topline.Base">
+        <item name="android:windowSplashScreenBackground">@color/topline_white</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_light</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/topline_white</item>
+    </style>
+    <style name="Theme.Topline.Dark" parent="Theme.Topline.Base">
+        <item name="android:windowSplashScreenBackground">@color/topline_black</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/icon1</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/topline_black</item>
+    </style>
+</resources>

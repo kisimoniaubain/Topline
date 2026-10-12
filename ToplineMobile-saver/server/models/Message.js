@@ -24,9 +24,15 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    readAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+messageSchema.index({ receiver: 1, readAt: 1 });
 
 const Message = mongoose.model("Message", messageSchema);
 

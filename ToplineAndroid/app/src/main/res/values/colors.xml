@@ -1,0 +1,6 @@
+<resources>
+    <color name="topline_orange">#F57F17</color>
+    <color name="topline_black">#0A0A0A</color>
+    <color name="topline_background">#F7F7F7</color>
+    <color name="topline_white">#FFFFFF</color>
+</resources>

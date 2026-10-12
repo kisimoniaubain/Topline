@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val toplineApiBaseUrl = providers.gradleProperty("TOPLINE_API_BASE_URL")
     .orElse("https://topline-api.onrender.com/api/")
     .get()
@@ -85,6 +89,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.android.material:material:1.12.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
@@ -97,6 +103,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
+    implementation("androidx.media3:media3-transformer:1.4.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 

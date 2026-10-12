@@ -7,9 +7,9 @@ import { v2 as cloudinary } from "cloudinary";
 import Comment from "../models/Comment.js";
 import Friend from "../models/Friend.js";
 import Like from "../models/Like.js";
-import Notification from "../models/Notification.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const router = express.Router();
 
@@ -40,6 +40,10 @@ const upload = multer({
 	dest: "uploads/",
 	limits: { fileSize: 500 * 1024 * 1024 },
 	fileFilter: (_req, file, callback) => {
+		if (file.fieldname === "cover" && !file.mimetype.startsWith("image/")) {
+			callback(new Error("Choose an image for the video cover."));
+			return;
+		}
 		if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
 			callback(null, true);
 			return;
@@ -47,7 +51,10 @@ const upload = multer({
 
 		callback(new Error("Only image and video files can be posted."));
 	},
-});
+}).fields([
+	{ name: "file", maxCount: 1 },
+	{ name: "cover", maxCount: 1 },
+]);
 
 cloudinary.config({
 	cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "drqqahmxt",
@@ -119,7 +126,26 @@ router.get("/author/:authorId", async (req, res) => {
 			return res.status(404).json({ message: "User not found." });
 		}
 
-		const records = await Post.find({ author: authorId })
+		let visiblePostFilter = {
+			$or: [
+				{ visibility: "public" },
+				{ visibility: { $exists: false } },
+			],
+		};
+		const token = req.headers.authorization?.split(" ")[1];
+		if (token) {
+			try {
+				const viewerId = jwt.verify(token, process.env.JWT_SECRET).userId;
+				if (String(viewerId) === String(authorId)) {
+					visiblePostFilter = {};
+				} else if (await Friend.exists({ follower: viewerId, following: authorId })) {
+					visiblePostFilter.$or.push({ visibility: "followers" });
+				}
+			} catch {
+				// Invalid optional credentials do not grant access to follower-only posts.
+			}
+		}
+		const records = await Post.find({ author: authorId, ...visiblePostFilter })
 			.sort({ createdAt: -1 })
 			.populate("author", "name username profilePicture");
 		const [posts, followersCount, followingCount] = await Promise.all([
@@ -157,6 +183,7 @@ router.get("/following", async (req, res) => {
 		const records = await Post.find({
 			author: { $in: followingIds },
 			video: { $nin: ["", null] },
+			$or: [{ visibility: { $in: ["public", "followers"] } }, { visibility: { $exists: false } }],
 		})
 			.sort({ createdAt: -1 })
 			.limit(50)
@@ -182,19 +209,31 @@ router.get("/following", async (req, res) => {
 
 router.get("/", async (req, res) => {
 	try {
-		const records = await Post.find()
-			.sort({ createdAt: -1 })
-			.limit(50)
-			.populate("author", "name username profilePicture");
 		const token = req.headers.authorization?.split(" ")[1];
 		let currentUserId = null;
+		let visibleAuthorIds = [];
 		if (token) {
 			try {
 				currentUserId = jwt.verify(token, process.env.JWT_SECRET).userId;
+				visibleAuthorIds = await Friend.distinct("following", { follower: currentUserId });
 			} catch {
 				currentUserId = null;
 			}
 		}
+		const visibilityFilter = currentUserId
+			? {
+				$or: [
+					{ visibility: "public" },
+					{ visibility: { $exists: false } },
+					{ author: currentUserId },
+					{ author: { $in: visibleAuthorIds }, visibility: "followers" },
+				],
+			}
+			: { $or: [{ visibility: "public" }, { visibility: { $exists: false } }] };
+		const records = await Post.find(visibilityFilter)
+			.sort({ createdAt: -1 })
+			.limit(50)
+			.populate("author", "name username profilePicture");
 		const [posts, likedPostIds] = await Promise.all([
 			getEngagementCounts(records),
 			currentUserId
@@ -214,7 +253,7 @@ router.get("/", async (req, res) => {
 	}
 });
 
-router.post("/", upload.single("file"), async (req, res) => {
+router.post("/", upload, async (req, res) => {
 	try {
 		const token = req.headers.authorization?.split(" ")[1];
 		if (!token) {
@@ -234,30 +273,35 @@ router.post("/", upload.single("file"), async (req, res) => {
 		}
 
 		const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-		if (!text && !req.file) {
+		const file = req.files?.file?.[0];
+		const cover = req.files?.cover?.[0];
+		const visibility = req.body.visibility === "followers" ? "followers" : "public";
+		const allowComments = req.body.allowComments !== "false";
+		if (!text && !file) {
 			return res.status(400).json({ message: "Add text, a photo, or a video." });
 		}
 
 		let image = "";
 		let video = "";
+		let coverImage = "";
 
-		if (req.file) {
+		if (file) {
 			if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
 				return res.status(503).json({ message: "Media uploads are not configured on the server." });
 			}
 
-			const resourceType = req.file.mimetype.startsWith("video/") ? "video" : "image";
+			const resourceType = file.mimetype.startsWith("video/") ? "video" : "image";
 			let uploaded;
 			try {
 				uploaded = resourceType === "video"
-					? await cloudinary.uploader.upload_large(req.file.path, {
+					? await cloudinary.uploader.upload_large(file.path, {
 						folder: "topline/posts",
 						resource_type: "video",
 						chunk_size: 6 * 1024 * 1024,
 						eager: [{ format: "mp4", video_codec: "h264", audio_codec: "aac" }],
 						eager_async: false,
 					})
-					: await cloudinary.uploader.upload(req.file.path, {
+					: await cloudinary.uploader.upload(file.path, {
 						folder: "topline/posts",
 						resource_type: "image",
 					});
@@ -276,11 +320,27 @@ router.post("/", upload.single("file"), async (req, res) => {
 			}
 		}
 
+		if (cover) {
+			try {
+				const uploadedCover = await cloudinary.uploader.upload(cover.path, {
+					folder: "topline/posts/covers",
+					resource_type: "image",
+				});
+				coverImage = uploadedCover.secure_url;
+			} catch (error) {
+				console.error("Cloudinary cover upload error:", error);
+				return res.status(502).json({ message: "The cover image could not be uploaded." });
+			}
+		}
+
 		const post = await Post.create({
 			author: decoded.userId,
 			text,
 			image,
 			video,
+			coverImage,
+			visibility,
+			allowComments,
 		});
 
 		await post.populate("author", "name username profilePicture");
@@ -289,15 +349,14 @@ router.post("/", upload.single("file"), async (req, res) => {
 				.select("follower")
 				.lean();
 			if (followers.length) {
-				await Notification.insertMany(
-					followers.map(({ follower }) => ({
+				await Promise.all(
+					followers.map(({ follower }) => createNotification({
 						recipient: follower,
 						actor: decoded.userId,
 						type: "post",
 						entityId: String(post._id),
 						text: "shared a new post.",
-					})),
-					{ ordered: false }
+					}))
 				);
 			}
 		} catch (notificationError) {
@@ -313,8 +372,8 @@ router.post("/", upload.single("file"), async (req, res) => {
 		console.error("Create post error:", error);
 		return res.status(500).json({ message: "Unable to create post." });
 	} finally {
-		if (req.file?.path) {
-			await fs.unlink(req.file.path).catch(() => {});
+		for (const file of Object.values(req.files || {}).flat()) {
+			if (file.path) await fs.unlink(file.path).catch(() => {});
 		}
 	}
 });

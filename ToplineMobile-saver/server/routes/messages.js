@@ -57,6 +57,18 @@ router.post("/presence", async (req, res) => {
   }
 });
 
+router.get("/unread-count", async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const unreadCount = await Message.countDocuments({ receiver: userId, readAt: null });
+    return res.json({ unreadCount });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to load unread message count.",
+    });
+  }
+});
+
 router.get("/inbox", async (req, res) => {
   try {
     const userId = getAuthenticatedUserId(req);
@@ -85,25 +97,55 @@ router.get("/inbox", async (req, res) => {
       .filter(Boolean)
       .map(contact);
     const latestByContact = new Map();
+    const unreadByContact = new Map();
     for (const message of messages) {
       const person = String(message.sender._id) === String(userId) ? message.receiver : message.sender;
       const personId = String(person._id);
+      if (String(message.receiver._id) === String(userId) && !message.readAt) {
+        unreadByContact.set(personId, (unreadByContact.get(personId) || 0) + 1);
+      }
       if (!latestByContact.has(personId)) {
         latestByContact.set(personId, {
           user: contact(person),
           lastMessage: message.text || (message.image ? "Photo" : ""),
           updatedAt: message.createdAt,
+          unreadCount: 0,
         });
       }
     }
 
-    return res.json({ following, conversations: [...latestByContact.values()] });
+    const conversations = [...latestByContact.entries()].map(([personId, conversation]) => ({
+      ...conversation,
+      unreadCount: unreadByContact.get(personId) || 0,
+    }));
+    const unreadMessageCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
+    return res.json({ following, conversations, unreadMessageCount });
   } catch (error) {
     if (!error.status) {
       console.error("Load inbox error:", error);
     }
     return res.status(error.status || 500).json({
       message: error.status ? error.message : "Unable to load your inbox.",
+    });
+  }
+});
+
+router.patch("/:userId/read", async (req, res) => {
+  try {
+    const currentUserId = getAuthenticatedUserId(req);
+    const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid account ID." });
+    }
+
+    await Message.updateMany(
+      { sender: userId, receiver: currentUserId, readAt: null },
+      { $set: { readAt: new Date() } },
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to mark messages as read.",
     });
   }
 });

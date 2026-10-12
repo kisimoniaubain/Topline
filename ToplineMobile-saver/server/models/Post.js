@@ -25,6 +25,22 @@ const postSchema = new mongoose.Schema(
       default: "",
     },
 
+    coverImage: {
+      type: String,
+      default: "",
+    },
+
+    visibility: {
+      type: String,
+      enum: ["public", "followers"],
+      default: "public",
+    },
+
+    allowComments: {
+      type: Boolean,
+      default: true,
+    },
+
     commentsCount: {
       type: Number,
       default: 0,

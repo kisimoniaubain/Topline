@@ -74,16 +74,34 @@ router.delete("/devices", async (req, res) => {
   }
 });
 
+router.get("/unread-count", async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const unreadCount = await Notification.countDocuments({ recipient: userId, isRead: false });
+    return res.json({ unreadCount });
+  } catch (error) {
+    if (!error.status) {
+      console.error("Load unread notification count error:", error);
+    }
+    return res.status(error.status || 500).json({
+      message: error.status ? error.message : "Unable to load unread notification count.",
+    });
+  }
+});
+
 router.get("/", async (req, res) => {
   try {
     const userId = getAuthenticatedUserId(req);
-    const notifications = await Notification.find({ recipient: userId })
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .populate("actor", "name username profilePicture")
-      .lean();
+    const [notifications, unreadCount] = await Promise.all([
+      Notification.find({ recipient: userId })
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .populate("actor", "name username profilePicture")
+        .lean(),
+      Notification.countDocuments({ recipient: userId, isRead: false }),
+    ]);
 
-    return res.json({ notifications });
+    return res.json({ notifications, unreadCount });
   } catch (error) {
     if (!error.status) {
       console.error("Load notifications error:", error);
