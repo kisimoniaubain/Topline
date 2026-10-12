@@ -440,26 +440,38 @@ fun MessagesScreen(
     }
     if (contactId != null) {
         Column(
-            Modifier.fillMaxSize().background(Color.White),
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         ) {
             Row(
-                Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp),
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to messages", tint = Color(0xFF171717))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back to messages",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
                 AccountAvatar(contactName.orEmpty(), conversationContact?.profilePicture, 42)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(contactName ?: "Messages", color = Color(0xFF171717), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        contactName ?: "Messages",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     Text(
                         if (conversationContact?.isOnline == true) "Active now" else "Conversation",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh conversation", tint = Color(0xFF171717))
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh conversation",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
             if (!conversationError.isNullOrBlank()) {
@@ -522,7 +534,8 @@ fun MessagesScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(18.dp))
                                         .background(
-                                            if (sentByMe) Color(0xFF7447F5) else Color(0xFFF0F0F0),
+                                            if (sentByMe) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.surfaceVariant,
                                         )
                                         .padding(10.dp),
                                 ) {
@@ -538,7 +551,8 @@ fun MessagesScreen(
                                         Text(
                                             message.text,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp),
-                                            color = if (sentByMe) Color.White else Color(0xFF171717),
+                                            color = if (sentByMe) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
                                 }
@@ -546,7 +560,7 @@ fun MessagesScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     formatMessageTime(message.createdAt),
-                                    color = Color(0xFF8A8A8A),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelSmall,
                                 )
                                 if (sentByMe && message.text.isNotBlank()) {
@@ -554,10 +568,20 @@ fun MessagesScreen(
                                         messageBeingEdited = message
                                         editDraft = message.text
                                     }, modifier = Modifier.size(34.dp)) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Edit message", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Edit message",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                     }
                                     IconButton(onClick = { messageBeingDeleted = message }, modifier = Modifier.size(34.dp)) {
-                                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete message", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = "Delete message",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                     }
                                 }
                             }
@@ -583,7 +607,7 @@ fun MessagesScreen(
             }
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -598,12 +622,13 @@ fun MessagesScreen(
                     maxLines = 4,
                     shape = RoundedCornerShape(26.dp),
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color(0xFF171717),
-                        unfocusedTextColor = Color(0xFF171717),
-                        focusedBorderColor = Color(0xFFD8D8D8),
-                        unfocusedBorderColor = Color(0xFFE4E4E4),
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        cursorColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
                 IconButton(
@@ -925,6 +950,7 @@ private fun formatMessageTime(timestamp: String?): String {
 
 @Composable
 fun DashboardScreen(
+    user: User?,
     analytics: com.kisimoni.topline.data.api.PostAnalyticsResponse?,
     isLoading: Boolean,
     errorMessage: String?,
@@ -948,19 +974,45 @@ fun DashboardScreen(
         } else if (analytics != null) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 item {
-                    Text("Your content performance", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+                    SettingsCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            InitialAvatar(user?.name.orEmpty(), 58, user?.profilePicture)
+                            Column(Modifier.padding(start = 14.dp)) {
+                                Text(user?.name.orEmpty().ifBlank { "Your creator account" }, fontWeight = FontWeight.Bold)
+                                Text(
+                                    user?.username.orEmpty().takeIf(String::isNotBlank)?.let { "@$it" } ?: "Topline creator",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (!user?.bio.isNullOrBlank()) {
+                                    Text(
+                                        user?.bio.orEmpty(),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Text("Account overview", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AnalyticsStat("Posts", analytics.postsCount, Modifier.weight(1f))
+                        AnalyticsStat("Followers", analytics.followersCount, Modifier.weight(1f))
+                    }
+                    Row(
+                        Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        AnalyticsStat("Following", analytics.followingCount, Modifier.weight(1f))
                         AnalyticsStat("Likes", analytics.likesCount, Modifier.weight(1f))
-                        AnalyticsStat("Comments", analytics.commentsCount, Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(16.dp))
                     SettingsCard {
                         Text("Engagement", fontWeight = FontWeight.Bold)
                         Text(
-                            "${analytics.likesCount + analytics.commentsCount} total interactions across ${analytics.postsCount} posts",
-                            color = Color.Gray,
+                            "${analytics.likesCount + analytics.commentsCount} total likes and comments across ${analytics.postsCount} posts",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 6.dp),
                         )
                         if (analytics.postsCount > 0) {
@@ -970,20 +1022,46 @@ fun DashboardScreen(
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
+                        Text(
+                            "Video views and follower history aren’t tracked yet.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+                item {
+                    Text("Recent posts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                if (analytics.recentPosts.isEmpty()) {
+                    item { Text("Share a post to start tracking its performance.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                } else {
+                    items(analytics.recentPosts, key = { "recent-${it.id}" }) { post ->
+                        SettingsCard {
+                            Text(post.text.ifBlank { "Media post" }, maxLines = 2, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                post.createdAt?.take(10).orEmpty().ifBlank { "Published" },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text("${post.likes} likes  ·  ${post.comments} comments", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
                 item {
                     Text("Top performing posts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 if (analytics.topPosts.isEmpty()) {
-                    item { Text("Share a post to start tracking its performance.", color = Color.Gray) }
+                    item { Text("Your top posts will appear here as people engage.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     items(analytics.topPosts, key = { it.id }) { post ->
                         SettingsCard {
                             Text(post.text.ifBlank { "Media post" }, maxLines = 2, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(8.dp))
                             val interactionTotal = post.likes + post.comments
-                            Text("${post.likes} likes  ·  ${post.comments} comments", color = Color.Gray)
+                            Text("${post.likes} likes  ·  ${post.comments} comments", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(
                                 Modifier.fillMaxWidth().padding(top = 8.dp).height(8.dp)
                                     .clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
@@ -1009,7 +1087,7 @@ fun DashboardScreen(
 private fun AnalyticsStat(label: String, count: Int, modifier: Modifier = Modifier) {
     SettingsCard(modifier) {
         Text(count.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(label, color = Color.Gray)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -405,6 +405,10 @@ data class DeleteMessageResponse(
 data class PostPerformance(
     @SerialName("_id") val id: String = "",
     @SerialName("text") val text: String = "",
+    @SerialName("image") val image: String? = null,
+    @SerialName("video") val video: String? = null,
+    @SerialName("coverImage") val coverImage: String? = null,
+    @SerialName("createdAt") val createdAt: String? = null,
     @SerialName("likes") val likes: Int = 0,
     @SerialName("comments") val comments: Int = 0,
 )
@@ -414,6 +418,9 @@ data class PostAnalyticsResponse(
     @SerialName("postsCount") val postsCount: Int = 0,
     @SerialName("likesCount") val likesCount: Int = 0,
     @SerialName("commentsCount") val commentsCount: Int = 0,
+    @SerialName("followersCount") val followersCount: Int = 0,
+    @SerialName("followingCount") val followingCount: Int = 0,
+    @SerialName("recentPosts") val recentPosts: List<PostPerformance> = emptyList(),
     @SerialName("topPosts") val topPosts: List<PostPerformance> = emptyList(),
 )
 

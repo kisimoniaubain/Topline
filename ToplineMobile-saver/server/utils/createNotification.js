@@ -23,7 +23,7 @@ export const createNotification = async ({ recipient, actor, type, entityId = ""
           notificationId: String(result.upsertedId),
         },
       }).catch((error) => {
-        console.error("Send push notification error:", error);
+        console.error(`Push delivery failed for ${type} notification:`, error);
       });
     }
   } catch (error) {

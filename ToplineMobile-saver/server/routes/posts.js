@@ -90,7 +90,21 @@ router.get("/mine/analytics", async (req, res) => {
 
 		const decoded = jwt.verify(token, process.env.JWT_SECRET);
 		const records = await Post.find({ author: decoded.userId }).sort({ createdAt: -1 });
-		const posts = await getEngagementCounts(records);
+		const [posts, followersCount, followingCount] = await Promise.all([
+			getEngagementCounts(records),
+			Friend.countDocuments({ following: decoded.userId }),
+			Friend.countDocuments({ follower: decoded.userId }),
+		]);
+		const toPerformance = (post) => ({
+			_id: post._id,
+			text: post.text,
+			image: post.image,
+			video: post.video,
+			coverImage: post.coverImage,
+			createdAt: post.createdAt,
+			likes: post.likesCount,
+			comments: post.commentsCount,
+		});
 		const topPosts = posts
 			.map((post) => ({
 				_id: post._id,
@@ -105,6 +119,9 @@ router.get("/mine/analytics", async (req, res) => {
 			postsCount: posts.length,
 			likesCount: posts.reduce((total, post) => total + post.likesCount, 0),
 			commentsCount: posts.reduce((total, post) => total + post.commentsCount, 0),
+			followersCount,
+			followingCount,
+			recentPosts: posts.slice(0, 5).map(toPerformance),
 			topPosts,
 		});
 	} catch (error) {

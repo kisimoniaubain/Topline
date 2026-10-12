@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -918,6 +920,7 @@ private fun VideoFeedCard(
 
     Card(
         modifier = Modifier.fillMaxSize(),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = Color.Black),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -925,7 +928,7 @@ private fun VideoFeedCard(
             if (!mediaUrl.isNullOrBlank()) {
                 if (videoUrl != null) {
                     VideoPreview(
-                        videoUrl = cloudinaryPlaybackUrl(videoUrl),
+                        videoUrl = videoUrl,
                         isActive = isActive,
                         onTapLike = onTapLike,
                         onPlaybackProgress = onPlaybackProgress,
@@ -1060,41 +1063,24 @@ private fun VideoFeedCard(
 private fun TikTokShareIcon() {
     Canvas(Modifier.size(28.dp)) {
         val path = Path().apply {
-            moveTo(size.width * 0.16f, size.height * 0.84f)
+            moveTo(size.width * 0.08f, size.height * 0.82f)
             cubicTo(
-                size.width * 0.16f, size.height * 0.60f,
-                size.width * 0.20f, size.height * 0.43f,
-                size.width * 0.38f, size.height * 0.40f,
+                size.width * 0.08f, size.height * 0.48f,
+                size.width * 0.25f, size.height * 0.31f,
+                size.width * 0.60f, size.height * 0.31f,
             )
-            cubicTo(
-                size.width * 0.55f, size.height * 0.36f,
-                size.width * 0.68f, size.height * 0.42f,
-                size.width * 0.68f, size.height * 0.52f,
-            )
-            lineTo(size.width * 0.68f, size.height * 0.30f)
+            lineTo(size.width * 0.60f, size.height * 0.08f)
             lineTo(size.width * 0.96f, size.height * 0.52f)
-            lineTo(size.width * 0.68f, size.height * 0.75f)
-            lineTo(size.width * 0.68f, size.height * 0.60f)
+            lineTo(size.width * 0.60f, size.height * 0.94f)
+            lineTo(size.width * 0.60f, size.height * 0.67f)
             cubicTo(
-                size.width * 0.61f, size.height * 0.49f,
-                size.width * 0.52f, size.height * 0.48f,
-                size.width * 0.42f, size.height * 0.51f,
+                size.width * 0.38f, size.height * 0.67f,
+                size.width * 0.25f, size.height * 0.70f,
+                size.width * 0.08f, size.height * 0.90f,
             )
-            cubicTo(
-                size.width * 0.27f, size.height * 0.56f,
-                size.width * 0.28f, size.height * 0.69f,
-                size.width * 0.28f, size.height * 0.84f,
-            )
+            close()
         }
-        drawPath(
-            path = path,
-            color = Color.White,
-            style = Stroke(
-                width = 2.2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
+        drawPath(path = path, color = Color.White)
     }
 }
 
@@ -1156,16 +1142,25 @@ private fun VideoPreview(
     onSeekRequestHandled: (Long) -> Unit,
 ) {
     val context = LocalContext.current
+    val playbackUrl = remember(videoUrl) { cloudinaryPlaybackUrl(videoUrl) }
     var playbackError by remember(videoUrl) { mutableStateOf(false) }
+    var originalUrlFallbackUsed by remember(videoUrl) { mutableStateOf(false) }
     var isPlaying by remember(videoUrl) { mutableStateOf(isActive) }
     var isBuffering by remember(videoUrl) { mutableStateOf(true) }
     var heartBurstId by remember(videoUrl) { mutableStateOf(0) }
+    var heartBurstX by remember(videoUrl) { mutableStateOf(0.5f) }
+    var heartBurstY by remember(videoUrl) { mutableStateOf(0.5f) }
     val exoPlayer = remember(context, videoUrl) {
         ExoPlayer.Builder(context)
             .build()
             .apply {
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        android.util.Log.e(
+                            "ToplineVideo",
+                            "Playback failed (${error.errorCodeName})",
+                            error,
+                        )
                         playbackError = true
                         isBuffering = false
                         isPlaying = false
@@ -1180,11 +1175,23 @@ private fun VideoPreview(
                         isPlaying = playing
                     }
                 })
-                setMediaItem(MediaItem.fromUri(videoUrl))
+                setMediaItem(MediaItem.fromUri(playbackUrl))
                 repeatMode = Player.REPEAT_MODE_ONE
                 prepare()
                 playWhenReady = isActive
             }
+    }
+
+    LaunchedEffect(exoPlayer, playbackError) {
+        if (!playbackError) return@LaunchedEffect
+        if (!originalUrlFallbackUsed && playbackUrl != videoUrl) {
+            originalUrlFallbackUsed = true
+            playbackError = false
+            isBuffering = true
+            exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = isActive
+        }
     }
 
     LaunchedEffect(exoPlayer, isActive, seekRequest) {
@@ -1229,8 +1236,10 @@ private fun VideoPreview(
                         }
                     }
                 },
-                onDoubleTap = {
+                onDoubleTap = { tapOffset ->
                     if (isActive) {
+                        heartBurstX = (tapOffset.x / size.width).coerceIn(0f, 1f)
+                        heartBurstY = (tapOffset.y / size.height).coerceIn(0f, 1f)
                         heartBurstId += 1
                         onTapLike()
                     }
@@ -1277,6 +1286,9 @@ private fun VideoPreview(
                     onClick = {
                         playbackError = false
                         exoPlayer.seekTo(0)
+                        exoPlayer.setMediaItem(
+                            MediaItem.fromUri(if (originalUrlFallbackUsed) videoUrl else playbackUrl),
+                        )
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = isActive
                     },
@@ -1287,7 +1299,7 @@ private fun VideoPreview(
         }
         if (heartBurstId > 0) {
             key(heartBurstId) {
-                HeartBurst(heartBurstId) { finishedBurstId ->
+                HeartBurst(heartBurstId, heartBurstX, heartBurstY) { finishedBurstId ->
                     if (heartBurstId == finishedBurstId) heartBurstId = 0
                 }
             }
@@ -1296,7 +1308,12 @@ private fun VideoPreview(
 }
 
 @Composable
-private fun HeartBurst(burstId: Int, onFinished: (Int) -> Unit) {
+private fun HeartBurst(
+    burstId: Int,
+    tapX: Float,
+    tapY: Float,
+    onFinished: (Int) -> Unit,
+) {
     val heartOffsets = listOf(-112, -76, -38, 0, 42, 82, 116)
     val heartSizes = listOf(34, 46, 40, 58, 38, 48, 32)
 
@@ -1305,7 +1322,11 @@ private fun HeartBurst(burstId: Int, onFinished: (Int) -> Unit) {
         onFinished(burstId)
     }
 
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val horizontalInset = minOf(60.dp, maxWidth / 2)
+        val verticalInset = minOf(100.dp, maxHeight / 2)
+        val originX = (maxWidth * tapX).coerceIn(horizontalInset, maxWidth - horizontalInset)
+        val originY = (maxHeight * tapY).coerceIn(verticalInset, maxHeight - verticalInset)
         heartOffsets.forEachIndexed { index, xOffset ->
             val rise = remember(burstId, index) { Animatable(0f) }
             val alpha = remember(burstId, index) { Animatable(1f) }
@@ -1330,8 +1351,10 @@ private fun HeartBurst(burstId: Int, onFinished: (Int) -> Unit) {
                 imageVector = Icons.Default.Favorite,
                 contentDescription = null,
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .offset(x = xOffset.dp, y = rise.value.dp)
+                    .offset(
+                        x = originX + xOffset.dp - heartSizes[index].dp / 2,
+                        y = originY + rise.value.dp - heartSizes[index].dp / 2,
+                    )
                     .size(heartSizes[index].dp),
                 tint = Color(0xFFFF2D55).copy(alpha = alpha.value),
             )

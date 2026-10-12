@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -81,28 +80,34 @@ fun RowScope.BottomTab(
 }
 
 @Composable
-fun MessengerIcon() {
+fun MessageDotsIcon() {
     val tint = LocalContentColor.current
     val cutout = MaterialTheme.colorScheme.surface
     Canvas(Modifier.size(24.dp)) {
         val bubble = Path().apply {
-            moveTo(size.width * 0.50f, size.height * 0.06f)
-            cubicTo(size.width * 0.22f, size.height * 0.06f, size.width * 0.06f, size.height * 0.25f, size.width * 0.06f, size.height * 0.51f)
-            cubicTo(size.width * 0.06f, size.height * 0.77f, size.width * 0.23f, size.height * 0.94f, size.width * 0.49f, size.height * 0.94f)
-            cubicTo(size.width * 0.75f, size.height * 0.94f, size.width * 0.94f, size.height * 0.75f, size.width * 0.94f, size.height * 0.50f)
-            cubicTo(size.width * 0.94f, size.height * 0.24f, size.width * 0.76f, size.height * 0.06f, size.width * 0.50f, size.height * 0.06f)
+            moveTo(size.width * 0.16f, size.height * 0.12f)
+            cubicTo(size.width * 0.08f, size.height * 0.12f, size.width * 0.04f, size.height * 0.19f, size.width * 0.04f, size.height * 0.28f)
+            lineTo(size.width * 0.04f, size.height * 0.68f)
+            cubicTo(size.width * 0.04f, size.height * 0.77f, size.width * 0.10f, size.height * 0.83f, size.width * 0.19f, size.height * 0.83f)
+            lineTo(size.width * 0.28f, size.height * 0.83f)
+            lineTo(size.width * 0.19f, size.height * 0.98f)
+            cubicTo(size.width * 0.17f, size.height * 1.01f, size.width * 0.21f, size.height * 1.02f, size.width * 0.25f, size.height * 0.99f)
+            lineTo(size.width * 0.48f, size.height * 0.83f)
+            lineTo(size.width * 0.82f, size.height * 0.83f)
+            cubicTo(size.width * 0.91f, size.height * 0.83f, size.width * 0.96f, size.height * 0.77f, size.width * 0.96f, size.height * 0.68f)
+            lineTo(size.width * 0.96f, size.height * 0.28f)
+            cubicTo(size.width * 0.96f, size.height * 0.19f, size.width * 0.90f, size.height * 0.12f, size.width * 0.81f, size.height * 0.12f)
             close()
         }
         drawPath(bubble, tint)
-        val bolt = Path().apply {
-            moveTo(size.width * 0.54f, size.height * 0.20f)
-            lineTo(size.width * 0.31f, size.height * 0.54f)
-            lineTo(size.width * 0.47f, size.height * 0.54f)
-            lineTo(size.width * 0.42f, size.height * 0.80f)
-            lineTo(size.width * 0.70f, size.height * 0.43f)
-            lineTo(size.width * 0.53f, size.height * 0.43f)
-            close()
+        val dotRadius = size.minDimension * 0.055f
+        val dotY = size.height * 0.48f
+        listOf(0.34f, 0.50f, 0.66f).forEach { x ->
+            drawCircle(
+                color = cutout,
+                radius = dotRadius,
+                center = androidx.compose.ui.geometry.Offset(size.width * x, dotY),
+            )
         }
-        drawPath(bolt, cutout, style = Fill)
     }
 }

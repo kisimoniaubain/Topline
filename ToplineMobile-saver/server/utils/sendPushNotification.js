@@ -3,7 +3,6 @@ import PushDevice from "../models/PushDevice.js";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 let cachedAccessToken = null;
-let firebaseSetupWarningLogged = false;
 
 const base64Url = (value) => Buffer.from(value).toString("base64url");
 
@@ -13,11 +12,9 @@ const getServiceAccount = () => {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
   if (!projectId || !clientEmail || !privateKey) {
-    if (!firebaseSetupWarningLogged) {
-      console.warn("Push notifications are disabled: Firebase service-account environment variables are not configured.");
-      firebaseSetupWarningLogged = true;
-    }
-    return null;
+    throw new Error(
+      "Firebase push delivery is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
+    );
   }
 
   return { projectId, clientEmail, privateKey };
@@ -104,9 +101,6 @@ const sendToDevice = async ({ projectId, accessToken, device, title, body, data 
 
 export const sendPushNotification = async ({ userId, title, body, data }) => {
   const serviceAccount = getServiceAccount();
-  if (!serviceAccount) {
-    return;
-  }
 
   const devices = await PushDevice.find({ user: userId })
     .select("token")

@@ -253,7 +253,7 @@ fun ToplineNavGraph(
                             navController.navigate(Routes.MESSAGES) { launchSingleTop = true }
                         },
                     ) {
-                        MessengerIcon()
+                        MessageDotsIcon()
                     }
                     BottomTab(
                         label = "Profile",
@@ -580,6 +580,7 @@ fun ToplineNavGraph(
 
             composable(Routes.DASHBOARD) {
                 DashboardScreen(
+                    user = user,
                     analytics = analyticsState.analytics,
                     isLoading = analyticsState.isLoading,
                     errorMessage = analyticsState.errorMessage,
