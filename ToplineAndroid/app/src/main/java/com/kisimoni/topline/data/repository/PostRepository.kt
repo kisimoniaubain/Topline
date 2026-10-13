@@ -1,8 +1,15 @@
 package com.kisimoni.topline.data.repository
 
 import android.content.Context
+import android.content.ContentValues
+import android.content.pm.PackageManager
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.kisimoni.topline.data.api.ApiService
 import com.kisimoni.topline.data.api.CommentListResponse
 import com.kisimoni.topline.data.api.CommentLikeStateResponse
@@ -41,9 +48,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class PostRepository(
     private val userPreferences: UserPreferences? = null,
@@ -343,6 +353,122 @@ class PostRepository(
                 Log.w("PostRepository", "Unable to remove temporary cover file: ${coverFile.name}")
             }
         }
+    }
+
+    suspend fun downloadVideoWithWatermark(
+        videoUrl: String,
+        creatorUsername: String,
+    ): Uri = withContext(Dispatchers.IO) {
+        val appContext = context ?: throw IllegalStateException("Context is required to download videos.")
+        val parsedUrl = videoUrl.toHttpUrlOrNull()
+            ?: throw IllegalArgumentException("This video does not have a valid download URL.")
+        require(parsedUrl.scheme == "https" || parsedUrl.scheme == "http") {
+            "Only HTTP and HTTPS video URLs can be downloaded."
+        }
+
+        val sourceFile = File.createTempFile("topline_download_source_", ".video", appContext.cacheDir)
+        var watermarkedFile: File? = null
+        try {
+            val request = okhttp3.Request.Builder().url(parsedUrl).get().build()
+            val response = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.MINUTES)
+                .callTimeout(10, TimeUnit.MINUTES)
+                .build()
+                .newCall(request)
+                .execute()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IOException("Unable to download video (HTTP ${it.code}).")
+                }
+                val body = it.body ?: throw IOException("The video download returned no content.")
+                if (body.contentLength() > MAX_UPLOAD_BYTES) {
+                    throw IllegalArgumentException("Videos must be 500 MB or smaller.")
+                }
+                body.byteStream().use { input ->
+                    sourceFile.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var totalBytes = 0L
+                        while (true) {
+                            val bytesRead = input.read(buffer)
+                            if (bytesRead < 0) break
+                            totalBytes += bytesRead
+                            require(totalBytes <= MAX_UPLOAD_BYTES) {
+                                "Videos must be 500 MB or smaller."
+                            }
+                            output.write(buffer, 0, bytesRead)
+                        }
+                    }
+                }
+            }
+
+            val renderedFile = VideoEditor.render(
+                appContext,
+                PostMediaEdit(videoClips = listOf(VideoClipEdit(Uri.fromFile(sourceFile)))),
+                creatorUsername,
+            )
+            watermarkedFile = renderedFile
+            publishVideoToGallery(appContext, renderedFile)
+        } finally {
+            if (sourceFile.exists() && !sourceFile.delete()) {
+                Log.w("PostRepository", "Unable to remove downloaded source video: ${sourceFile.name}")
+            }
+            watermarkedFile?.let {
+                if (it.exists() && !it.delete()) {
+                    Log.w("PostRepository", "Unable to remove rendered video: ${it.name}")
+                }
+            }
+        }
+    }
+
+    private fun publishVideoToGallery(context: Context, videoFile: File): Uri {
+        val displayName = "Topline_${System.currentTimeMillis()}.mp4"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Topline")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IOException("Unable to create the downloaded video in your gallery.")
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    videoFile.inputStream().use { input -> input.copyTo(output) }
+                } ?: throw IOException("Unable to write the downloaded video to your gallery.")
+                values.clear()
+                values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                context.contentResolver.update(uri, values, null, null)
+                return uri
+            } catch (error: Exception) {
+                context.contentResolver.delete(uri, null, null)
+                throw error
+            }
+        }
+
+        if (ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            throw SecurityException("Storage permission is required to save this video.")
+        }
+        val directory = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+            "Topline",
+        )
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw IOException("Unable to create the Topline folder in your Movies directory.")
+        }
+        val destination = File(directory, displayName)
+        try {
+            videoFile.copyTo(destination, overwrite = false)
+        } catch (error: Exception) {
+            destination.delete()
+            throw error
+        }
+        MediaScannerConnection.scanFile(context, arrayOf(destination.absolutePath), arrayOf("video/mp4"), null)
+        return Uri.fromFile(destination)
     }
 
     private fun copyUriToTempFile(context: Context, uri: Uri, mimeType: String): File {

@@ -21,9 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -157,7 +155,7 @@ fun ToplineNavGraph(
     Scaffold(
         bottomBar = {
             if (authState.isAuthenticated && currentRoute in mainRoutes) {
-                Column(modifier = Modifier.fillMaxWidth().background(colorScheme.surface)) {
+                Column(modifier = Modifier.fillMaxWidth().background(Color.Black)) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -210,14 +208,14 @@ fun ToplineNavGraph(
                         selected = currentRoute == Routes.HOME,
                         onClick = { navController.navigate(Routes.HOME) { launchSingleTop = true } },
                     ) {
-                        Icon(Icons.Default.Home, contentDescription = null)
+                        HomeOutlineIcon()
                     }
                     BottomTab(
                         label = "People",
                         selected = currentRoute == Routes.PEOPLE,
                         onClick = { navController.navigate(Routes.PEOPLE) { launchSingleTop = true } },
                     ) {
-                        Icon(Icons.Default.People, contentDescription = null)
+                        PeopleOutlineIcon()
                     }
                     Box(
                         modifier = Modifier
@@ -263,7 +261,7 @@ fun ToplineNavGraph(
                             navController.navigate(Routes.PROFILE) { launchSingleTop = true }
                         },
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = null)
+                        ProfileOutlineIcon()
                     }
                     }
                 }

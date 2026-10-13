@@ -726,6 +726,21 @@ class PostViewModel(
                 )
             }
         }
+
+    }
+
+    fun downloadVideoWithWatermark(
+        videoUrl: String,
+        creatorUsername: String,
+        onResult: (Result<Uri>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            try {
+                onResult(Result.success(postRepository.downloadVideoWithWatermark(videoUrl, creatorUsername)))
+            } catch (error: Exception) {
+                onResult(Result.failure(error))
+            }
+        }
     }
 
     fun loadComments(postId: String) {

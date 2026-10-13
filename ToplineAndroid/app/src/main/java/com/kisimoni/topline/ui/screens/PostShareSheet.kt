@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,9 +58,11 @@ fun PostShareSheet(
     post: PostItem,
     contacts: List<InboxContact>,
     isSaved: Boolean,
+    isDownloading: Boolean,
     isLoadingContacts: Boolean,
     onCopyLink: () -> Unit,
     onShareToApps: () -> Unit,
+    onDownload: () -> Unit,
     onSave: () -> Unit,
     onManageCollections: () -> Unit,
     onSendToContact: (InboxContact, String, (Boolean, String?) -> Unit) -> Unit,
@@ -136,8 +139,15 @@ fun PostShareSheet(
                     enabled = !shareUrl.isNullOrBlank(),
                 )
                 ShareAction(
+                    icon = Icons.Default.Download,
+                    label = if (isDownloading) "Saving…" else "Download",
+                    onClick = onDownload,
+                    enabled = !isDownloading && post.playableVideoUrl() != null,
+                    isLoading = isDownloading,
+                )
+                ShareAction(
                     icon = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                    label = if (isSaved) "Saved" else "Save",
+                    label = if (isSaved) "Saved" else "Bookmark",
                     onClick = onSave,
                     tint = if (isSaved) ShareOrange else colorScheme.onSurface,
                 )
@@ -262,23 +272,30 @@ private fun ShareAction(
     onClick: () -> Unit,
     enabled: Boolean = true,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    isLoading: Boolean = false,
 ) {
     Column(
-        Modifier.clip(RoundedCornerShape(12.dp)).clickable(enabled = enabled, onClick = onClick).padding(10.dp),
+        Modifier.width(64.dp).clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, onClick = onClick).padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            Modifier.size(52.dp).clip(CircleShape)
+            Modifier.size(44.dp).clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = tint)
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = ShareOrange, strokeWidth = 2.dp)
+            } else {
+                Icon(icon, contentDescription = null, tint = tint)
+            }
         }
         Spacer(Modifier.height(6.dp))
         Text(
             label,
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
         )
     }
 }

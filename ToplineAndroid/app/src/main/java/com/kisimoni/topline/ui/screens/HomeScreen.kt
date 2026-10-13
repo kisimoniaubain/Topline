@@ -3,7 +3,10 @@ package com.kisimoni.topline.ui.screens
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.Manifest
 import android.net.Uri
+import android.os.Build
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +82,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -121,6 +125,8 @@ fun HomeScreen(
     val saveRequestsInFlight = remember { mutableStateMapOf<String, Boolean>() }
     val localComments = remember { mutableStateMapOf<String, List<CommentItem>>() }
     val sampleCommentLikes = remember { mutableStateMapOf<String, Boolean>() }
+    var downloadingPostId by remember { mutableStateOf<String?>(null) }
+    var permissionPendingDownload by remember { mutableStateOf<PostItem?>(null) }
     val samplePosts = remember {
         listOf(
             PostItem(
@@ -152,6 +158,7 @@ fun HomeScreen(
     var searchDraft by remember { mutableStateOf("") }
     var searchSubmitted by remember { mutableStateOf(false) }
     var recentSearches by remember { mutableStateOf(emptyList<String>()) }
+    val context = LocalContext.current
     val sourcePosts = if (showFollowing) uiState.followingPosts else uiState.posts + samplePosts
     val searchSuggestions = remember(sourcePosts) {
         sourcePosts.sortedByDescending { it.likesCount }
@@ -173,7 +180,40 @@ fun HomeScreen(
         }
     }
     val pagerState = rememberPagerState(pageCount = { feedPosts.size })
-    val context = LocalContext.current
+    fun startVideoDownload(post: PostItem) {
+        val videoUrl = post.playableVideoUrl()
+        if (videoUrl.isNullOrBlank()) {
+            Toast.makeText(context, "This post does not have a downloadable video.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        downloadingPostId = post.id
+        postViewModel.downloadVideoWithWatermark(
+            cloudinaryPlaybackUrl(videoUrl),
+            post.author.username,
+        ) { result ->
+            downloadingPostId = null
+            result.onSuccess {
+                Toast.makeText(context, "Video saved to Movies/Topline with watermark.", Toast.LENGTH_LONG).show()
+            }.onFailure { error ->
+                Toast.makeText(
+                    context,
+                    error.message ?: "Unable to download this video.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val post = permissionPendingDownload
+        permissionPendingDownload = null
+        if (granted && post != null) {
+            startVideoDownload(post)
+        } else if (post != null) {
+            Toast.makeText(context, "Storage permission is needed to save videos.", Toast.LENGTH_SHORT).show()
+        }
+    }
     var selectedPost by remember { mutableStateOf<PostItem?>(null) }
     var sharingPost by remember { mutableStateOf<PostItem?>(null) }
     var collectionsPost by remember { mutableStateOf<PostItem?>(null) }
@@ -503,6 +543,7 @@ fun HomeScreen(
             } else {
                 post.id in uiState.savedPostIds
             },
+            isDownloading = downloadingPostId == post.id,
             isLoadingContacts = inboxState.isLoading,
             onCopyLink = {
                 if (shareUrl.isNullOrBlank()) {
@@ -524,6 +565,17 @@ fun HomeScreen(
                         putExtra(Intent.EXTRA_TEXT, shareText)
                     }
                     context.startActivity(Intent.createChooser(shareIntent, "Share post"))
+                }
+            },
+            onDownload = {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    permissionPendingDownload = post
+                    storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                } else {
+                    startVideoDownload(post)
                 }
             },
             onSave = {
@@ -1032,11 +1084,7 @@ private fun VideoFeedCard(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(onClick = onComment, enabled = post.allowComments) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Message,
-                            contentDescription = if (post.allowComments) "Comments" else "Comments disabled",
-                            tint = if (post.allowComments) Color.White else Color.White.copy(alpha = 0.45f),
-                        )
+                        TikTokCommentIcon(enabled = post.allowComments)
                     }
                     Text(
                         text = if (post.allowComments) "${post.commentsCount}" else "Off",
@@ -1062,25 +1110,53 @@ private fun VideoFeedCard(
 @Composable
 private fun TikTokShareIcon() {
     Canvas(Modifier.size(28.dp)) {
-        val path = Path().apply {
-            moveTo(size.width * 0.08f, size.height * 0.82f)
+        val stroke = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val arrow = Path().apply {
+            moveTo(size.width * 0.18f, size.height * 0.46f)
             cubicTo(
-                size.width * 0.08f, size.height * 0.48f,
-                size.width * 0.25f, size.height * 0.31f,
-                size.width * 0.60f, size.height * 0.31f,
+                size.width * 0.18f, size.height * 0.25f,
+                size.width * 0.35f, size.height * 0.16f,
+                size.width * 0.58f, size.height * 0.16f,
             )
-            lineTo(size.width * 0.60f, size.height * 0.08f)
-            lineTo(size.width * 0.96f, size.height * 0.52f)
-            lineTo(size.width * 0.60f, size.height * 0.94f)
-            lineTo(size.width * 0.60f, size.height * 0.67f)
+            lineTo(size.width * 0.58f, size.height * 0.02f)
+            lineTo(size.width * 0.92f, size.height * 0.30f)
+            lineTo(size.width * 0.58f, size.height * 0.57f)
+            lineTo(size.width * 0.58f, size.height * 0.41f)
             cubicTo(
-                size.width * 0.38f, size.height * 0.67f,
-                size.width * 0.25f, size.height * 0.70f,
-                size.width * 0.08f, size.height * 0.90f,
+                size.width * 0.39f, size.height * 0.41f,
+                size.width * 0.25f, size.height * 0.49f,
+                size.width * 0.20f, size.height * 0.68f,
             )
-            close()
         }
-        drawPath(path = path, color = Color.White)
+        drawPath(arrow, Color.White, style = stroke)
+    }
+}
+
+@Composable
+private fun TikTokCommentIcon(enabled: Boolean) {
+    Canvas(Modifier.size(28.dp)) {
+        val tint = if (enabled) Color.White else Color.White.copy(alpha = 0.45f)
+        val stroke = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(
+            color = tint,
+            topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.12f, size.height * 0.10f),
+            size = androidx.compose.ui.geometry.Size(size.width * 0.76f, size.height * 0.62f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.17f),
+            style = stroke,
+        )
+        val tail = Path().apply {
+            moveTo(size.width * 0.29f, size.height * 0.70f)
+            lineTo(size.width * 0.25f, size.height * 0.90f)
+            lineTo(size.width * 0.49f, size.height * 0.72f)
+        }
+        drawPath(tail, tint, style = stroke)
+        listOf(0.34f, 0.50f, 0.66f).forEach { x ->
+            drawCircle(
+                color = tint,
+                radius = size.minDimension * 0.045f,
+                center = androidx.compose.ui.geometry.Offset(size.width * x, size.height * 0.41f),
+            )
+        }
     }
 }
 
@@ -1122,7 +1198,7 @@ private fun TikTokSaveIcon(isSaved: Boolean) {
         }
         drawPath(
             path = bookmark,
-            color = Color.White,
+            color = if (isSaved) Color(0xFFFFD54F) else Color.White,
             style = if (isSaved) androidx.compose.ui.graphics.drawscope.Fill else Stroke(
                 width = 2.2.dp.toPx(),
                 cap = StrokeCap.Round,

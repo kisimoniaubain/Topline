@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +37,7 @@ fun RowScope.BottomTab(
     unreadCount: Int = 0,
     icon: @Composable () -> Unit,
 ) {
-    val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val tint = if (selected) Color.White else Color(0xFF9E9E9E)
     Column(
         modifier = Modifier
             .weight(1f)
@@ -82,7 +83,7 @@ fun RowScope.BottomTab(
 @Composable
 fun MessageDotsIcon() {
     val tint = LocalContentColor.current
-    val cutout = MaterialTheme.colorScheme.surface
+    val cutout = Color.Black
     Canvas(Modifier.size(24.dp)) {
         val bubble = Path().apply {
             moveTo(size.width * 0.16f, size.height * 0.12f)
@@ -99,6 +100,7 @@ fun MessageDotsIcon() {
             cubicTo(size.width * 0.96f, size.height * 0.19f, size.width * 0.90f, size.height * 0.12f, size.width * 0.81f, size.height * 0.12f)
             close()
         }
+
         drawPath(bubble, tint)
         val dotRadius = size.minDimension * 0.055f
         val dotY = size.height * 0.48f
@@ -109,5 +111,72 @@ fun MessageDotsIcon() {
                 center = androidx.compose.ui.geometry.Offset(size.width * x, dotY),
             )
         }
+    }
+}
+
+@Composable
+fun HomeOutlineIcon() {
+        val tint = LocalContentColor.current
+        Canvas(Modifier.size(24.dp)) {
+            val house = Path().apply {
+                moveTo(size.width * 0.12f, size.height * 0.45f)
+                lineTo(size.width * 0.50f, size.height * 0.13f)
+                lineTo(size.width * 0.88f, size.height * 0.45f)
+                lineTo(size.width * 0.82f, size.height * 0.45f)
+                lineTo(size.width * 0.82f, size.height * 0.87f)
+                lineTo(size.width * 0.58f, size.height * 0.87f)
+                lineTo(size.width * 0.58f, size.height * 0.62f)
+                lineTo(size.width * 0.42f, size.height * 0.62f)
+                lineTo(size.width * 0.42f, size.height * 0.87f)
+                lineTo(size.width * 0.18f, size.height * 0.87f)
+                lineTo(size.width * 0.18f, size.height * 0.45f)
+                close()
+            }
+            drawPath(
+                house,
+                tint,
+                style = Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round),
+            )
+        }
+}
+
+@Composable
+fun PeopleOutlineIcon() {
+        val tint = LocalContentColor.current
+        Canvas(Modifier.size(24.dp)) {
+            val stroke = Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawCircle(
+                tint,
+                radius = size.minDimension * 0.17f,
+                center = androidx.compose.ui.geometry.Offset(size.width * 0.50f, size.height * 0.31f),
+                style = stroke,
+            )
+            val person = Path().apply {
+                moveTo(size.width * 0.16f, size.height * 0.85f)
+                cubicTo(size.width * 0.18f, size.height * 0.62f, size.width * 0.34f, size.height * 0.53f, size.width * 0.50f, size.height * 0.53f)
+                cubicTo(size.width * 0.66f, size.height * 0.53f, size.width * 0.82f, size.height * 0.62f, size.width * 0.84f, size.height * 0.85f)
+            }
+            drawPath(person, tint, style = stroke)
+        }
+}
+
+@Composable
+fun ProfileOutlineIcon() {
+        val tint = LocalContentColor.current
+        Canvas(Modifier.size(24.dp)) {
+            val stroke = Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawCircle(
+                tint,
+                radius = size.minDimension * 0.19f,
+                center = androidx.compose.ui.geometry.Offset(size.width * 0.50f, size.height * 0.30f),
+                style = stroke,
+            )
+            val shoulders = Path().apply {
+                moveTo(size.width * 0.14f, size.height * 0.87f)
+                cubicTo(size.width * 0.16f, size.height * 0.62f, size.width * 0.31f, size.height * 0.53f, size.width * 0.50f, size.height * 0.53f)
+                cubicTo(size.width * 0.69f, size.height * 0.53f, size.width * 0.84f, size.height * 0.62f, size.width * 0.86f, size.height * 0.87f)
+                close()
+            }
+            drawPath(shoulders, tint, style = stroke)
     }
 }
