@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.content.pm.PackageManager
 import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -76,8 +78,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -189,7 +197,7 @@ fun HomeScreen(
         downloadingPostId = post.id
         postViewModel.downloadVideoWithWatermark(
             cloudinaryPlaybackUrl(videoUrl),
-            post.author.username,
+            post.author.username.ifBlank { post.author.name },
         ) { result ->
             downloadingPostId = null
             result.onSuccess {
@@ -982,11 +990,12 @@ private fun VideoFeedCard(
                     VideoPreview(
                         videoUrl = videoUrl,
                         isActive = isActive,
-                        onTapLike = onTapLike,
-                        onPlaybackProgress = onPlaybackProgress,
-                        seekRequest = seekRequest,
-                        onSeekRequestHandled = onSeekRequestHandled,
-                    )
+                                            creatorName = post.author.username.ifBlank { post.author.name },
+                                            onTapLike = onTapLike,
+                                            onPlaybackProgress = onPlaybackProgress,
+                                            seekRequest = seekRequest,
+                                            onSeekRequestHandled = onSeekRequestHandled,
+                                        )
                 } else {
                     AsyncImage(
                         model = mediaUrl,
@@ -1212,6 +1221,7 @@ private fun TikTokSaveIcon(isSaved: Boolean) {
 private fun VideoPreview(
     videoUrl: String,
     isActive: Boolean,
+    creatorName: String,
     onTapLike: () -> Unit,
     onPlaybackProgress: (Float) -> Unit,
     seekRequest: Pair<Long, Float>?,
@@ -1226,6 +1236,9 @@ private fun VideoPreview(
     var heartBurstId by remember(videoUrl) { mutableStateOf(0) }
     var heartBurstX by remember(videoUrl) { mutableStateOf(0.5f) }
     var heartBurstY by remember(videoUrl) { mutableStateOf(0.5f) }
+    var showEndCard by remember(videoUrl) { mutableStateOf(false) }
+    val toneGen = remember { android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 85) }
+
     val exoPlayer = remember(context, videoUrl) {
         ExoPlayer.Builder(context)
             .build()
@@ -1245,6 +1258,19 @@ private fun VideoPreview(
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         isBuffering = playbackState == Player.STATE_BUFFERING
                         if (playbackState == Player.STATE_READY) playbackError = false
+
+                        // When playback reaches the end (or reports ended), show the 1s black end-card overlay.
+                        try {
+                            val duration = duration
+                            val position = currentPosition
+                            if (playbackState == Player.STATE_ENDED || (duration > 0 && position >= duration - 250)) {
+                                // schedule overlay show on main thread
+                                Handler(Looper.getMainLooper()).post {
+                                    showEndCard = true
+                                }
+                            }
+                        } catch (ignored: Exception) {
+                        }
                     }
 
                     override fun onIsPlayingChanged(playing: Boolean) {
@@ -1377,6 +1403,50 @@ private fun VideoPreview(
             key(heartBurstId) {
                 HeartBurst(heartBurstId, heartBurstX, heartBurstY) { finishedBurstId ->
                     if (heartBurstId == finishedBurstId) heartBurstId = 0
+                }
+            }
+        }
+
+        if (showEndCard) {
+            LaunchedEffect(showEndCard) {
+                // play a short public-domain style beep and show for 1s
+                try {
+                    toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 240)
+                } catch (ignored: Exception) {
+                }
+                kotlinx.coroutines.delay(1000)
+                showEndCard = false
+            }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { showEndCard = false },
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.icon1),
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        colorFilter = ColorFilter.tint(Color.White),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Image(
+                        painter = painterResource(R.drawable.logo1),
+                        contentDescription = null,
+                        modifier = Modifier.width(140.dp).height(36.dp),
+                        colorFilter = ColorFilter.tint(Color.White),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "@${creatorName.trim().removePrefix("@")}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                    )
                 }
             }
         }

@@ -10,8 +10,20 @@ class ToplineFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title?.takeIf(String::isNotBlank) ?: "Topline"
-        val body = message.notification?.body?.takeIf(String::isNotBlank) ?: return
+        val title = message.notification?.title
+            ?.takeIf(String::isNotBlank)
+            ?: message.data["title"]
+                ?.takeIf(String::isNotBlank)
+            ?: "Topline"
+
+        val body = message.notification?.body
+            ?.takeIf(String::isNotBlank)
+            ?: message.data["body"]
+                ?.takeIf(String::isNotBlank)
+            ?: message.data["message"]
+                ?.takeIf(String::isNotBlank)
+            ?: return
+
         showNotification(title, body)
     }
 

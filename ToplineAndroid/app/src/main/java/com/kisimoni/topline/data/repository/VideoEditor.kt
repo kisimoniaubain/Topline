@@ -211,9 +211,9 @@ object VideoEditor {
     private const val WATERMARK_ALPHA = 0.9f
     private const val WATERMARK_MOVE_INTERVAL_US = 3_000_000L
     private val WATERMARK_POSITIONS = listOf(
-        -0.72f to -0.72f,
         0.72f to -0.72f,
         0.72f to 0.72f,
         -0.72f to 0.72f,
+        -0.72f to -0.72f,
     )
 }
