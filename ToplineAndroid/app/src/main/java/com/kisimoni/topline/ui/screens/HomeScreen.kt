@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -8,8 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.content.pm.PackageManager
 import android.widget.Toast
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -34,18 +34,6 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -78,23 +66,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.Image
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -130,10 +110,14 @@ fun HomeScreen(
     val likedPosts = remember { mutableStateMapOf<String, Boolean>() }
     val likeRequestsInFlight = remember { mutableStateMapOf<String, Boolean>() }
     val sampleSavedPosts = remember { mutableStateMapOf<String, Boolean>() }
+    val sampleSavedCounts = remember { mutableStateMapOf<String, Int>() }
+    val sampleShareCounts = remember { mutableStateMapOf<String, Int>() }
     val saveRequestsInFlight = remember { mutableStateMapOf<String, Boolean>() }
     val localComments = remember { mutableStateMapOf<String, List<CommentItem>>() }
     val sampleCommentLikes = remember { mutableStateMapOf<String, Boolean>() }
     var downloadingPostId by remember { mutableStateOf<String?>(null) }
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
+    var downloadProgress by remember { mutableStateOf<Float?>(null) }
     var permissionPendingDownload by remember { mutableStateOf<PostItem?>(null) }
     val samplePosts = remember {
         listOf(
@@ -188,28 +172,62 @@ fun HomeScreen(
         }
     }
     val pagerState = rememberPagerState(pageCount = { feedPosts.size })
+    fun updateSampleSaved(post: PostItem, saved: Boolean) {
+        val wasSaved = sampleSavedPosts[post.id] == true
+        if (wasSaved == saved) return
+        sampleSavedPosts[post.id] = saved
+        sampleSavedCounts[post.id] = (
+            (sampleSavedCounts[post.id] ?: post.savesCount) + if (saved) 1 else -1
+            ).coerceAtLeast(0)
+    }
+    fun recordShareAction(post: PostItem) {
+        if (post.id.startsWith("sample-")) {
+            sampleShareCounts[post.id] = (sampleShareCounts[post.id] ?: post.sharesCount) + 1
+            return
+        }
+        if (authViewModel.tokenOrNull().isNullOrBlank()) {
+            Toast.makeText(context, "Sign in to count post shares.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        postViewModel.recordPostShare(post.id) { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
     fun startVideoDownload(post: PostItem) {
+        if (downloadingPostId != null) {
+            Toast.makeText(context, "A video is already being saved. Please wait.", Toast.LENGTH_SHORT).show()
+            return
+        }
         val videoUrl = post.playableVideoUrl()
         if (videoUrl.isNullOrBlank()) {
             Toast.makeText(context, "This post does not have a downloadable video.", Toast.LENGTH_SHORT).show()
             return
         }
         downloadingPostId = post.id
+        downloadStatus = "Preparing download"
+        downloadProgress = null
         postViewModel.downloadVideoWithWatermark(
             cloudinaryPlaybackUrl(videoUrl),
             post.author.username.ifBlank { post.author.name },
-        ) { result ->
-            downloadingPostId = null
-            result.onSuccess {
-                Toast.makeText(context, "Video saved to Movies/Topline with watermark.", Toast.LENGTH_LONG).show()
-            }.onFailure { error ->
-                Toast.makeText(
-                    context,
-                    error.message ?: "Unable to download this video.",
-                    Toast.LENGTH_LONG,
-                ).show()
+            onProgress = { status, progress ->
+                downloadStatus = status
+                downloadProgress = progress
+            },
+            onResult = { result ->
+                downloadingPostId = null
+                downloadStatus = null
+                downloadProgress = null
+                result.onSuccess {
+                    Toast.makeText(context, "Video saved to Movies/Topline with watermark.", Toast.LENGTH_LONG).show()
+                }.onFailure { error ->
+                    Toast.makeText(
+                        context,
+                        error.message ?: "Unable to download this video.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             }
-        }
+        )
     }
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -313,6 +331,8 @@ fun HomeScreen(
                 } else {
                     post.id in uiState.savedPostIds
                 }
+                val savesCount = sampleSavedCounts[post.id] ?: post.savesCount
+                val sharesCount = sampleShareCounts[post.id] ?: post.sharesCount
                 fun likePost() {
                     if (post.id.startsWith("sample-")) {
                         likedPosts[post.id] = !isLiked
@@ -342,6 +362,8 @@ fun HomeScreen(
                     isLiked = isLiked,
                     likesCount = likesCount,
                     isSaved = isSaved,
+                    savesCount = savesCount,
+                    sharesCount = sharesCount,
                     isActive = page == pagerState.currentPage && selectedPost == null,
                     onPlaybackProgress = onPlaybackProgress,
                     seekRequest = seekRequest,
@@ -364,7 +386,7 @@ fun HomeScreen(
                     },
                     onSave = {
                         if (post.id.startsWith("sample-")) {
-                            sampleSavedPosts[post.id] = !isSaved
+                            updateSampleSaved(post, !isSaved)
                             return@VideoFeedCard
                         }
                         if (saveRequestsInFlight[post.id] == true) return@VideoFeedCard
@@ -442,11 +464,16 @@ fun HomeScreen(
                     searchSubmitted = false
                     showSearch = true
                 }) {
-                    Icon(Icons.Default.Search, contentDescription = "Search videos", tint = Color.White)
+                    Icon(BootstrapIcons.Search(), contentDescription = "Search videos", tint = Color.White)
                 }
                 IconButton(onClick = onOpenAlerts) {
                     Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.NotificationsNone, contentDescription = "Alerts", tint = Color.White)
+                        Icon(
+                            BootstrapIcons.Bell(),
+                            contentDescription = "Alerts",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color.White,
+                        )
                         if (unreadNotificationCount > 0) {
                             Box(
                                 Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp)
@@ -517,7 +544,7 @@ fun HomeScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
-                                    Icons.Default.Search,
+                                    BootstrapIcons.Search(),
                                     contentDescription = null,
                                     tint = colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
@@ -552,6 +579,9 @@ fun HomeScreen(
                 post.id in uiState.savedPostIds
             },
             isDownloading = downloadingPostId == post.id,
+            isDownloadBusy = downloadingPostId != null,
+            downloadStatus = downloadStatus.takeIf { downloadingPostId == post.id },
+            downloadProgress = downloadProgress.takeIf { downloadingPostId == post.id },
             isLoadingContacts = inboxState.isLoading,
             onCopyLink = {
                 if (shareUrl.isNullOrBlank()) {
@@ -560,6 +590,7 @@ fun HomeScreen(
                     val clipboard = context.getSystemService(ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(ClipData.newPlainText("Topline post link", shareUrl))
                     Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+                    recordShareAction(post)
                 }
             },
             onShareToApps = {
@@ -573,6 +604,7 @@ fun HomeScreen(
                         putExtra(Intent.EXTRA_TEXT, shareText)
                     }
                     context.startActivity(Intent.createChooser(shareIntent, "Share post"))
+                    recordShareAction(post)
                 }
             },
             onDownload = {
@@ -588,7 +620,7 @@ fun HomeScreen(
             },
             onSave = {
                 if (post.id.startsWith("sample-")) {
-                    sampleSavedPosts[post.id] = sampleSavedPosts[post.id] != true
+                    updateSampleSaved(post, sampleSavedPosts[post.id] != true)
                 } else if (authViewModel.tokenOrNull().isNullOrBlank()) {
                     Toast.makeText(context, "Sign in to save posts.", Toast.LENGTH_SHORT).show()
                 } else {
@@ -626,6 +658,7 @@ fun HomeScreen(
             onSendToContact = { contact, text, onResult ->
                 postViewModel.sendSharedPost(contact.id, text, onResult)
             },
+            onShareCompleted = { recordShareAction(post) },
             onDismiss = { sharingPost = null },
         )
     }
@@ -810,7 +843,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { pickCommentImage.launch("image/*") }) {
                         Icon(
-                            Icons.Default.AddPhotoAlternate,
+                            BootstrapIcons.AddPhoto(),
                             contentDescription = "Attach image to comment",
                             tint = Color(0xFFF57F17),
                         )
@@ -865,7 +898,7 @@ fun HomeScreen(
                         if (commentsState.isSubmitting) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFF57F17))
                         } else {
-                            Icon(Icons.AutoMirrored.Filled.Message, contentDescription = "Post comment", tint = Color(0xFFF57F17))
+                            Icon(BootstrapIcons.Message(), contentDescription = "Post comment", tint = Color(0xFFF57F17))
                         }
                     }
                 }
@@ -943,7 +976,7 @@ private fun CommentRow(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             IconButton(onClick = onLike, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    if (isLiked) BootstrapIcons.HeartFill() else BootstrapIcons.HeartOutline(),
                     contentDescription = if (isLiked) "Unlike comment" else "Like comment",
                     tint = if (isLiked) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(19.dp),
@@ -962,6 +995,8 @@ private fun VideoFeedCard(
     isLiked: Boolean,
     likesCount: Int,
     isSaved: Boolean,
+    savesCount: Int,
+    sharesCount: Int,
     isActive: Boolean,
     onPlaybackProgress: (Float) -> Unit,
     seekRequest: Pair<Long, Float>?,
@@ -990,7 +1025,6 @@ private fun VideoFeedCard(
                     VideoPreview(
                         videoUrl = videoUrl,
                         isActive = isActive,
-                                            creatorName = post.author.username.ifBlank { post.author.name },
                                             onTapLike = onTapLike,
                                             onPlaybackProgress = onPlaybackProgress,
                                             seekRequest = seekRequest,
@@ -1080,35 +1114,60 @@ private fun VideoFeedCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 120.dp),
+                    .padding(end = 8.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = onLike) {
+                    IconButton(onClick = onLike, modifier = Modifier.size(44.dp)) {
                         TikTokHeartIcon(isLiked = isLiked)
                     }
-                    Text(text = "$likesCount", color = Color.White)
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = onComment, enabled = post.allowComments) {
-                        TikTokCommentIcon(enabled = post.allowComments)
-                    }
                     Text(
-                        text = if (post.allowComments) "${post.commentsCount}" else "Off",
+                        text = formatEngagementCount(likesCount),
                         color = Color.White,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
                     )
                 }
 
-                IconButton(onClick = onShare) {
-                    TikTokShareIcon()
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = onComment,
+                        enabled = post.allowComments,
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        TikTokCommentIcon(enabled = post.allowComments)
+                    }
+                    Text(
+                        text = if (post.allowComments) formatEngagementCount(post.commentsCount) else "Off",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                    )
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = onSave) {
+                    IconButton(onClick = onSave, modifier = Modifier.size(44.dp)) {
                         TikTokSaveIcon(isSaved = isSaved)
                     }
+                    Text(
+                        text = formatEngagementCount(savesCount),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = onShare, modifier = Modifier.size(44.dp)) {
+                        TikTokShareIcon()
+                    }
+                    Text(
+                        text = formatEngagementCount(sharesCount),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                    )
                 }
             }
 
@@ -1116,112 +1175,65 @@ private fun VideoFeedCard(
     }
 }
 
+private fun formatEngagementCount(count: Int): String {
+    if (count < 1_000) return count.toString()
+    val value = when {
+        count >= 1_000_000 -> count / 1_000_000f
+        count >= 10_000 -> count / 1_000f
+        else -> return "%,d".format(count)
+    }
+    val suffix = if (count >= 1_000_000) "M" else "K"
+    return if (value < 100 && value % 1f != 0f) {
+        "%.1f%s".format(java.util.Locale.US, value, suffix)
+    } else {
+        "%.0f%s".format(java.util.Locale.US, value, suffix)
+    }
+}
+
 @Composable
 private fun TikTokShareIcon() {
-    Canvas(Modifier.size(28.dp)) {
-        val stroke = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val arrow = Path().apply {
-            moveTo(size.width * 0.18f, size.height * 0.46f)
-            cubicTo(
-                size.width * 0.18f, size.height * 0.25f,
-                size.width * 0.35f, size.height * 0.16f,
-                size.width * 0.58f, size.height * 0.16f,
-            )
-            lineTo(size.width * 0.58f, size.height * 0.02f)
-            lineTo(size.width * 0.92f, size.height * 0.30f)
-            lineTo(size.width * 0.58f, size.height * 0.57f)
-            lineTo(size.width * 0.58f, size.height * 0.41f)
-            cubicTo(
-                size.width * 0.39f, size.height * 0.41f,
-                size.width * 0.25f, size.height * 0.49f,
-                size.width * 0.20f, size.height * 0.68f,
-            )
-        }
-        drawPath(arrow, Color.White, style = stroke)
-    }
+    Icon(
+        BootstrapIcons.ArrowRightTurn(),
+        contentDescription = null,
+        modifier = Modifier.size(28.dp),
+        tint = Color.White,
+    )
 }
 
 @Composable
 private fun TikTokCommentIcon(enabled: Boolean) {
-    Canvas(Modifier.size(28.dp)) {
-        val tint = if (enabled) Color.White else Color.White.copy(alpha = 0.45f)
-        val stroke = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        drawRoundRect(
-            color = tint,
-            topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.12f, size.height * 0.10f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.76f, size.height * 0.62f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.17f),
-            style = stroke,
-        )
-        val tail = Path().apply {
-            moveTo(size.width * 0.29f, size.height * 0.70f)
-            lineTo(size.width * 0.25f, size.height * 0.90f)
-            lineTo(size.width * 0.49f, size.height * 0.72f)
-        }
-        drawPath(tail, tint, style = stroke)
-        listOf(0.34f, 0.50f, 0.66f).forEach { x ->
-            drawCircle(
-                color = tint,
-                radius = size.minDimension * 0.045f,
-                center = androidx.compose.ui.geometry.Offset(size.width * x, size.height * 0.41f),
-            )
-        }
-    }
+    Icon(
+        BootstrapIcons.ChatDotsFill(),
+        contentDescription = null,
+        modifier = Modifier.size(28.dp),
+        tint = if (enabled) Color.White else Color.White.copy(alpha = 0.45f),
+    )
 }
 
 @Composable
 private fun TikTokHeartIcon(isLiked: Boolean) {
-    Canvas(Modifier.size(32.dp)) {
-        val heart = Path().apply {
-            moveTo(size.width * 0.5f, size.height * 0.88f)
-            cubicTo(size.width * 0.43f, size.height * 0.82f, size.width * 0.08f, size.height * 0.55f, size.width * 0.08f, size.height * 0.32f)
-            cubicTo(size.width * 0.08f, size.height * 0.04f, size.width * 0.40f, size.height * 0.02f, size.width * 0.5f, size.height * 0.25f)
-            cubicTo(size.width * 0.60f, size.height * 0.02f, size.width * 0.92f, size.height * 0.04f, size.width * 0.92f, size.height * 0.32f)
-            cubicTo(size.width * 0.92f, size.height * 0.55f, size.width * 0.57f, size.height * 0.82f, size.width * 0.5f, size.height * 0.88f)
-            close()
-        }
-        drawPath(
-            path = heart,
-            color = if (isLiked) Color(0xFFFF2D55) else Color.White,
-            style = if (isLiked) androidx.compose.ui.graphics.drawscope.Fill else Stroke(
-                width = 2.2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
-    }
+    Icon(
+        if (isLiked) BootstrapIcons.HeartFill() else BootstrapIcons.HeartOutline(),
+        contentDescription = null,
+        modifier = Modifier.size(32.dp),
+        tint = if (isLiked) Color(0xFFFF2D55) else Color.White,
+    )
 }
 
 @Composable
 private fun TikTokSaveIcon(isSaved: Boolean) {
-    Canvas(Modifier.size(30.dp)) {
-        val bookmark = Path().apply {
-            moveTo(size.width * 0.24f, size.height * 0.12f)
-            quadraticTo(size.width * 0.24f, size.height * 0.08f, size.width * 0.30f, size.height * 0.08f)
-            lineTo(size.width * 0.70f, size.height * 0.08f)
-            quadraticTo(size.width * 0.76f, size.height * 0.08f, size.width * 0.76f, size.height * 0.14f)
-            lineTo(size.width * 0.76f, size.height * 0.90f)
-            lineTo(size.width * 0.50f, size.height * 0.70f)
-            lineTo(size.width * 0.24f, size.height * 0.90f)
-            close()
-        }
-        drawPath(
-            path = bookmark,
-            color = if (isSaved) Color(0xFFFFD54F) else Color.White,
-            style = if (isSaved) androidx.compose.ui.graphics.drawscope.Fill else Stroke(
-                width = 2.2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
-    }
+    Icon(
+        if (isSaved) BootstrapIcons.BookmarkFill() else BootstrapIcons.Bookmark(),
+        contentDescription = null,
+        modifier = Modifier.size(30.dp),
+        tint = if (isSaved) Color(0xFFFFD54F) else Color.White,
+    )
 }
 
 @Composable
 private fun VideoPreview(
     videoUrl: String,
     isActive: Boolean,
-    creatorName: String,
     onTapLike: () -> Unit,
     onPlaybackProgress: (Float) -> Unit,
     seekRequest: Pair<Long, Float>?,
@@ -1236,9 +1248,6 @@ private fun VideoPreview(
     var heartBurstId by remember(videoUrl) { mutableStateOf(0) }
     var heartBurstX by remember(videoUrl) { mutableStateOf(0.5f) }
     var heartBurstY by remember(videoUrl) { mutableStateOf(0.5f) }
-    var showEndCard by remember(videoUrl) { mutableStateOf(false) }
-    val toneGen = remember { android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 85) }
-
     val exoPlayer = remember(context, videoUrl) {
         ExoPlayer.Builder(context)
             .build()
@@ -1258,18 +1267,8 @@ private fun VideoPreview(
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         isBuffering = playbackState == Player.STATE_BUFFERING
                         if (playbackState == Player.STATE_READY) playbackError = false
-
-                        // When playback reaches the end (or reports ended), show the 1s black end-card overlay.
-                        try {
-                            val duration = duration
-                            val position = currentPosition
-                            if (playbackState == Player.STATE_ENDED || (duration > 0 && position >= duration - 250)) {
-                                // schedule overlay show on main thread
-                                Handler(Looper.getMainLooper()).post {
-                                    showEndCard = true
-                                }
-                            }
-                        } catch (ignored: Exception) {
+                        if (playbackState == Player.STATE_ENDED) {
+                            isPlaying = false
                         }
                     }
 
@@ -1278,7 +1277,7 @@ private fun VideoPreview(
                     }
                 })
                 setMediaItem(MediaItem.fromUri(playbackUrl))
-                repeatMode = Player.REPEAT_MODE_ONE
+                repeatMode = Player.REPEAT_MODE_OFF
                 prepare()
                 playWhenReady = isActive
             }
@@ -1323,7 +1322,9 @@ private fun VideoPreview(
     }
 
     DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
+        onDispose {
+            exoPlayer.release()
+        }
     }
 
     Box(
@@ -1331,7 +1332,10 @@ private fun VideoPreview(
             detectTapGestures(
                 onTap = {
                     if (isActive) {
-                        if (exoPlayer.isPlaying) {
+                        if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                            exoPlayer.seekTo(0)
+                            exoPlayer.play()
+                        } else if (exoPlayer.isPlaying) {
                             exoPlayer.pause()
                         } else {
                             exoPlayer.play()
@@ -1368,7 +1372,7 @@ private fun VideoPreview(
         }
         if (!isPlaying && !playbackError && isActive && !isBuffering) {
             Icon(
-                Icons.Default.PlayArrow,
+                BootstrapIcons.Play(),
                 contentDescription = "Play video",
                 modifier = Modifier.align(Alignment.Center).size(72.dp),
                 tint = Color.White.copy(alpha = 0.9f),
@@ -1407,49 +1411,6 @@ private fun VideoPreview(
             }
         }
 
-        if (showEndCard) {
-            LaunchedEffect(showEndCard) {
-                // play a short public-domain style beep and show for 1s
-                try {
-                    toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 240)
-                } catch (ignored: Exception) {
-                }
-                kotlinx.coroutines.delay(1000)
-                showEndCard = false
-            }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .clickable { showEndCard = false },
-            ) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.icon1),
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        colorFilter = ColorFilter.tint(Color.White),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Image(
-                        painter = painterResource(R.drawable.logo1),
-                        contentDescription = null,
-                        modifier = Modifier.width(140.dp).height(36.dp),
-                        colorFilter = ColorFilter.tint(Color.White),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "@${creatorName.trim().removePrefix("@")}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -1494,7 +1455,7 @@ private fun HeartBurst(
                 }
             }
             Icon(
-                imageVector = Icons.Default.Favorite,
+                imageVector = BootstrapIcons.HeartFill(),
                 contentDescription = null,
                 modifier = Modifier
                     .offset(

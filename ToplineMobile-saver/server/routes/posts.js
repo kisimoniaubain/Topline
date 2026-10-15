@@ -8,16 +8,40 @@ import Comment from "../models/Comment.js";
 import Friend from "../models/Friend.js";
 import Like from "../models/Like.js";
 import Post from "../models/Post.js";
+import SavedPost from "../models/SavedPost.js";
 import User from "../models/User.js";
 import { createNotification } from "../utils/createNotification.js";
 
 const router = express.Router();
 
+const looksLikeVideoUrl = (url) =>
+	typeof url === "string" &&
+	(/\/video\/upload\//i.test(url) || /\.(3gp|m3u8|m4v|mkv|mov|mp4|webm)(?:[?#]|$)/i.test(url));
+
+const toClientPost = (post) => {
+	const value = typeof post.toObject === "function" ? post.toObject() : post;
+	const mediaType = value.mediaType || value.media_type || "";
+	const declaresVideo = mediaType.toLowerCase() === "video" ||
+		mediaType.toLowerCase().startsWith("video/");
+	const videoUrl = value.video || value.videoUrl || value.video_url ||
+		(declaresVideo ? value.mediaUrl || value.image : "") ||
+		(looksLikeVideoUrl(value.mediaUrl) ? value.mediaUrl : "") ||
+		(looksLikeVideoUrl(value.image) ? value.image : "");
+
+	return {
+		...value,
+		video: videoUrl,
+		videoUrl,
+		mediaUrl: value.mediaUrl || videoUrl || value.image || "",
+		mediaType: videoUrl ? "video/mp4" : mediaType,
+	};
+};
+
 const getEngagementCounts = async (posts) => {
 	const postIds = posts.map((post) => post._id);
 	if (!postIds.length) return [];
 
-	const [comments, likes] = await Promise.all([
+	const [comments, likes, saves] = await Promise.all([
 		Comment.aggregate([
 			{ $match: { post: { $in: postIds } } },
 			{ $group: { _id: "$post", count: { $sum: 1 } } },
@@ -26,14 +50,21 @@ const getEngagementCounts = async (posts) => {
 			{ $match: { post: { $in: postIds } } },
 			{ $group: { _id: "$post", count: { $sum: 1 } } },
 		]),
+		SavedPost.aggregate([
+			{ $match: { post: { $in: postIds } } },
+			{ $group: { _id: "$post", count: { $sum: 1 } } },
+		]),
 	]);
 	const commentCounts = new Map(comments.map(({ _id, count }) => [String(_id), count]));
 	const likeCounts = new Map(likes.map(({ _id, count }) => [String(_id), count]));
+	const saveCounts = new Map(saves.map(({ _id, count }) => [String(_id), count]));
 
 	return posts.map((post) => ({
-		...post.toObject(),
+		...toClientPost(post),
 		commentsCount: commentCounts.get(String(post._id)) || 0,
 		likesCount: likeCounts.get(String(post._id)) || 0,
+		sharesCount: post.sharesCount || 0,
+		savesCount: saveCounts.get(String(post._id)) || 0,
 	}));
 };
 const upload = multer({
@@ -270,6 +301,47 @@ router.get("/", async (req, res) => {
 	}
 });
 
+router.post("/:postId/share", async (req, res) => {
+	try {
+		const token = req.headers.authorization?.split(" ")[1];
+		if (!token) {
+			return res.status(401).json({ message: "Sign in to count post shares." });
+		}
+
+		let decoded;
+		try {
+			decoded = jwt.verify(token, process.env.JWT_SECRET);
+		} catch {
+			return res.status(401).json({ message: "Your session has expired." });
+		}
+
+		if (!mongoose.Types.ObjectId.isValid(decoded.userId)) {
+			return res.status(401).json({ message: "User account was not found." });
+		}
+		const { postId } = req.params;
+		if (!mongoose.Types.ObjectId.isValid(postId)) {
+			return res.status(400).json({ message: "Invalid post ID." });
+		}
+		if (!(await User.exists({ _id: decoded.userId }))) {
+			return res.status(401).json({ message: "User account was not found." });
+		}
+
+		const post = await Post.findByIdAndUpdate(
+			postId,
+			{ $inc: { sharesCount: 1 } },
+			{ new: true, runValidators: true },
+		).select("sharesCount");
+		if (!post) {
+			return res.status(404).json({ message: "Post not found." });
+		}
+
+		return res.json({ success: true, sharesCount: post.sharesCount });
+	} catch (error) {
+		console.error("Record post share error:", error);
+		return res.status(500).json({ message: "Unable to count this post share." });
+	}
+});
+
 router.post("/", upload, async (req, res) => {
 	try {
 		const token = req.headers.authorization?.split(" ")[1];
@@ -383,7 +455,7 @@ router.post("/", upload, async (req, res) => {
 		return res.status(201).json({
 			success: true,
 			message: "Post created successfully.",
-			post,
+			post: toClientPost(post),
 		});
 	} catch (error) {
 		console.error("Create post error:", error);

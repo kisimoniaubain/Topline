@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import android.content.Intent
 import android.content.Context
 import android.net.Uri
@@ -24,11 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -206,7 +203,7 @@ fun UploadScreen(
                     PublishStep.Details -> step = PublishStep.Edit
                 }
             }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
             }
             Text("Create post", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
@@ -250,7 +247,7 @@ fun UploadScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57F17)),
                     ) {
-                        Icon(Icons.Default.Videocam, contentDescription = null)
+                        Icon(BootstrapIcons.CameraVideo(), contentDescription = null)
                         Spacer(Modifier.size(8.dp))
                         Text("Choose video")
                     }
@@ -260,7 +257,7 @@ fun UploadScreen(
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                     ) {
-                        Icon(Icons.Default.Videocam, contentDescription = null)
+                        Icon(BootstrapIcons.CameraVideo(), contentDescription = null)
                         Spacer(Modifier.size(8.dp))
                         Text("Record video")
                     }
@@ -272,7 +269,7 @@ fun UploadScreen(
                         },
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
-                        Icon(Icons.Default.Image, contentDescription = null)
+                        Icon(BootstrapIcons.Image(), contentDescription = null)
                         Spacer(Modifier.size(8.dp))
                         Text("Choose photo")
                     }
@@ -369,7 +366,7 @@ fun UploadScreen(
                             }
                             if (soundtrackUri != null) {
                                 IconButton(onClick = { soundtrackUri = null }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove soundtrack")
+                                    Icon(BootstrapIcons.Close(), contentDescription = "Remove soundtrack")
                                 }
                             }
                         }
@@ -414,7 +411,7 @@ fun UploadScreen(
                             }
                             if (coverUri != null) {
                                 IconButton(onClick = { coverUri = null }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove custom cover")
+                                    Icon(BootstrapIcons.Close(), contentDescription = "Remove custom cover")
                                 }
                             }
                         }
@@ -652,7 +649,7 @@ private fun ClipEditor(
             TextButton(onClick = { onMove(-1) }, enabled = canMoveUp) { Text("Up") }
             TextButton(onClick = { onMove(1) }, enabled = canMoveDown) { Text("Down") }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, contentDescription = "Remove clip")
+                Icon(BootstrapIcons.Close(), contentDescription = "Remove clip")
             }
         }
         if (clip.durationMs > 0) {

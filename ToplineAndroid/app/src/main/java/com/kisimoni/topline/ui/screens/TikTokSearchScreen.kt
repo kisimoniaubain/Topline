@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,11 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,7 +73,7 @@ fun TikTokSearchDialog(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
                 }
                 Surface(
                     modifier = Modifier.weight(1f),
@@ -88,7 +85,7 @@ fun TikTokSearchDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            Icons.Default.Search,
+                            BootstrapIcons.Search(),
                             contentDescription = null,
                             tint = colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp),
@@ -117,7 +114,7 @@ fun TikTokSearchDialog(
                                 onClick = { onQueryChange("") },
                                 modifier = Modifier.size(24.dp),
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
+                                Icon(BootstrapIcons.Close(), contentDescription = "Clear search", modifier = Modifier.size(18.dp))
                             }
                         }
                     }
@@ -214,7 +211,7 @@ private fun SearchSuggestionRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Icon(
-            if (recent) Icons.Default.History else Icons.Default.Search,
+            if (recent) BootstrapIcons.ClockHistory() else BootstrapIcons.Search(),
             contentDescription = null,
             tint = colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),

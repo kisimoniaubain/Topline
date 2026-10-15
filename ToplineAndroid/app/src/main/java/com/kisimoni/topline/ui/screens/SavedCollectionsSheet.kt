@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -130,7 +130,7 @@ fun SavedCollectionsSheet(
                             }
                             IconButton(onClick = { collectionToDelete = collection }) {
                                 Icon(
-                                    Icons.Default.DeleteOutline,
+                                    BootstrapIcons.Delete(),
                                     contentDescription = "Delete ${collection.name}",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

@@ -78,6 +78,8 @@ data class PostItem(
     @SerialName("createdAt") val createdAt: String? = null,
     @SerialName("commentsCount") val commentsCount: Int = 0,
     @SerialName("likesCount") val likesCount: Int = 0,
+    @SerialName("sharesCount") val sharesCount: Int = 0,
+    @SerialName("savesCount") val savesCount: Int = 0,
     @SerialName("likedByCurrentUser") val likedByCurrentUser: Boolean = false,
 ) {
     fun playableVideoUrl(): String? {
@@ -86,13 +88,18 @@ data class PostItem(
             ?.trim()
             ?.let { return it }
 
-        val declaredMediaType = mediaType ?: legacyMediaType
+        val declaredMediaType = sequenceOf(mediaType, legacyMediaType)
+            .firstOrNull { !it.isNullOrBlank() }
+        val isDeclaredVideo = declaredMediaType?.let {
+            it.equals("video", ignoreCase = true) ||
+                it.startsWith("video/", ignoreCase = true)
+        } == true
         return sequenceOf(mediaUrl, image)
             .firstOrNull { url ->
                 !url.isNullOrBlank() && url.isValidMediaUrl() &&
-                    (declaredMediaType?.startsWith("video/", ignoreCase = true) == true ||
-                        url.looksLikeVideoUrl())
+                    (isDeclaredVideo || url.looksLikeVideoUrl())
             }
+            ?.trim()
     }
 
     fun displayableMediaUrl(): String? {
@@ -169,7 +176,14 @@ data class SavedPostsResponse(
 data class SavedPostStateResponse(
     @SerialName("success") val success: Boolean = false,
     @SerialName("isSaved") val isSaved: Boolean = false,
+    @SerialName("savesCount") val savesCount: Int = 0,
     @SerialName("message") val message: String = "",
+)
+
+@Serializable
+data class PostShareResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("sharesCount") val sharesCount: Int = 0,
 )
 
 @Serializable

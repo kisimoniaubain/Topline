@@ -46,6 +46,12 @@ const postSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    sharesCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

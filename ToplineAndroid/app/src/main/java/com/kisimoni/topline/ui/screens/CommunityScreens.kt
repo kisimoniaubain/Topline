@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import androidx.activity.compose.BackHandler
 import android.net.Uri
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -9,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,25 +34,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -75,7 +60,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
@@ -150,12 +138,12 @@ fun PeopleScreen(
         if (showFriends) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { showFriends = false }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to people")
+                    Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back to people")
                 }
                 Text("Friends", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onOpenFriends) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh friends")
+                    Icon(BootstrapIcons.Refresh(), contentDescription = "Refresh friends")
                 }
             }
             Row(
@@ -239,7 +227,7 @@ fun PeopleScreen(
                     showSearch = true
                 }) {
                     Icon(
-                        Icons.Default.Search,
+                        BootstrapIcons.Search(),
                         contentDescription = "Search people",
                         tint = Orange,
                     )
@@ -448,7 +436,7 @@ fun MessagesScreen(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
+                        BootstrapIcons.ArrowBack(),
                         contentDescription = "Back to messages",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
@@ -468,7 +456,7 @@ fun MessagesScreen(
                 }
                 IconButton(onClick = onRefresh) {
                     Icon(
-                        Icons.Default.Refresh,
+                        BootstrapIcons.Refresh(),
                         contentDescription = "Refresh conversation",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
@@ -569,7 +557,7 @@ fun MessagesScreen(
                                         editDraft = message.text
                                     }, modifier = Modifier.size(34.dp)) {
                                         Icon(
-                                            Icons.Default.Edit,
+                                            BootstrapIcons.Edit(),
                                             contentDescription = "Edit message",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp),
@@ -577,7 +565,7 @@ fun MessagesScreen(
                                     }
                                     IconButton(onClick = { messageBeingDeleted = message }, modifier = Modifier.size(34.dp)) {
                                         Icon(
-                                            Icons.Default.DeleteOutline,
+                                            BootstrapIcons.Delete(),
                                             contentDescription = "Delete message",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp),
@@ -601,7 +589,7 @@ fun MessagesScreen(
                         contentScale = ContentScale.Crop,
                     )
                     IconButton(onClick = { selectedImage = null }) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove selected image")
+                        Icon(BootstrapIcons.Close(), contentDescription = "Remove selected image")
                     }
                 }
             }
@@ -612,7 +600,7 @@ fun MessagesScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { pickImage.launch("image/*") }, enabled = !isSending) {
-                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Attach image", tint = Orange)
+                    Icon(BootstrapIcons.AddPhoto(), contentDescription = "Attach image", tint = Orange)
                 }
                 OutlinedTextField(
                     value = draft,
@@ -643,7 +631,7 @@ fun MessagesScreen(
                     if (isSending) {
                         CircularProgressIndicator(Modifier.size(22.dp), color = Orange, strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message", tint = Orange)
+                        Icon(BootstrapIcons.Send(), contentDescription = "Send message", tint = Orange)
                     }
                 }
             }
@@ -694,7 +682,7 @@ fun MessagesScreen(
     ) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
             }
             Column(Modifier.weight(1f)) {
                 Text("Inbox", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -706,12 +694,12 @@ fun MessagesScreen(
                 showInboxSearch = true
             }) {
                 Icon(
-                    Icons.Default.Search,
+                    BootstrapIcons.Search(),
                     contentDescription = "Search messages",
                     tint = Orange,
                 )
             }
-            IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, contentDescription = "Refresh inbox") }
+            IconButton(onClick = onRefresh) { Icon(BootstrapIcons.Refresh(), contentDescription = "Refresh inbox") }
         }
         if (showInboxSearch) {
             TikTokSearchDialog(
@@ -894,7 +882,7 @@ fun MessagesScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, tint = Orange, modifier = Modifier.size(44.dp))
+                Icon(BootstrapIcons.Message(), contentDescription = null, tint = Orange, modifier = Modifier.size(44.dp))
                 Spacer(Modifier.height(10.dp))
                 Text(if (inboxSearchQuery.isBlank()) "No conversations yet" else "No matching conversations", fontWeight = FontWeight.Bold)
                 Text(
@@ -962,7 +950,7 @@ fun DashboardScreen(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             ScreenHeader("Creator dashboard", onBack = onBack, modifier = Modifier.weight(1f))
-            IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, contentDescription = "Refresh analytics") }
+            IconButton(onClick = onRefresh) { Icon(BootstrapIcons.Refresh(), contentDescription = "Refresh analytics") }
         }
         if (!errorMessage.isNullOrBlank()) {
             Text(errorMessage, color = MaterialTheme.colorScheme.error)
@@ -1104,7 +1092,7 @@ fun NotificationsScreen(
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             ScreenHeader(title = "Notifications", onBack = onBack, modifier = Modifier.weight(1f))
-            IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, contentDescription = "Refresh notifications") }
+            IconButton(onClick = onRefresh) { Icon(BootstrapIcons.Refresh(), contentDescription = "Refresh notifications") }
         }
         if (isLoading && notifications.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1124,7 +1112,7 @@ fun NotificationsScreen(
                         modifier = Modifier.size(82.dp).clip(CircleShape).background(Color(0xFFFFE7CC)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Default.Notifications, contentDescription = null, tint = Orange, modifier = Modifier.size(38.dp))
+                        Icon(BootstrapIcons.BellFill(), contentDescription = null, tint = Orange, modifier = Modifier.size(38.dp))
                     }
                     Spacer(Modifier.height(20.dp))
                     Text("You’re all caught up", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
@@ -1222,7 +1210,7 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = Orange)
+                        Icon(BootstrapIcons.Sliders(), contentDescription = null, tint = Orange)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Appearance", fontWeight = FontWeight.SemiBold)
@@ -1236,7 +1224,7 @@ fun SettingsScreen(
             item {
                 SettingsCard(modifier = Modifier.clickable { showLanguages = true }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Language, contentDescription = null, tint = Orange)
+                        Icon(BootstrapIcons.Language(), contentDescription = null, tint = Orange)
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("Language", fontWeight = FontWeight.SemiBold)
@@ -1285,7 +1273,7 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Select language", modifier = Modifier.weight(1f))
                     IconButton(onClick = { showLanguages = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(BootstrapIcons.Close(), contentDescription = "Close")
                     }
                 }
             },
@@ -1383,7 +1371,7 @@ fun EditProfileScreen(
                 ) {
                     UserAvatar(name, user?.profilePicture, 88)
                     TextButton(onClick = { avatarPicker.launch("image/*") }) {
-                        Icon(Icons.Default.Image, contentDescription = null)
+                        Icon(BootstrapIcons.Image(), contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text("Edit profile photo")
                     }
@@ -1447,6 +1435,9 @@ fun UserProfileScreen(
     user: User?,
     posts: List<PostItem>,
     savedPosts: List<PostItem>,
+    likedPosts: List<PostItem>,
+    isLikedPostsLoading: Boolean,
+    likedPostsError: String?,
     savedCollections: List<SavedCollection>,
     savedCollectionPosts: List<PostItem>,
     activeSavedCollection: SavedCollection?,
@@ -1464,25 +1455,46 @@ fun UserProfileScreen(
     isFollowing: Boolean,
     onBack: () -> Unit,
     onLoadSavedPosts: () -> Unit,
+    onLoadLikedPosts: () -> Unit,
     onLoadSavedCollections: () -> Unit,
     onLoadSavedCollectionPosts: (String) -> Unit,
     onSettings: () -> Unit,
+    onDashboard: () -> Unit,
+    onNotifications: () -> Unit,
     onEditProfile: () -> Unit,
     onMessage: () -> Unit,
     onFollow: () -> Unit,
 ) {
-    var showingSavedPosts by remember { mutableStateOf(false) }
+    var selectedProfileTab by remember(isOwnProfile) { mutableStateOf(ProfileContentTab.POSTS) }
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
     var selectedVideoId by remember { mutableStateOf<String?>(null) }
+    var isProfileMenuOpen by remember { mutableStateOf(false) }
+    val privatePosts = remember(posts) { posts.filter { !it.visibility.equals("public", ignoreCase = true) } }
     val displayedPosts = when {
-        !showingSavedPosts -> posts
+        selectedProfileTab == ProfileContentTab.POSTS ->
+            if (isOwnProfile) posts.filter { it.visibility.equals("public", ignoreCase = true) } else posts
+        selectedProfileTab == ProfileContentTab.PRIVATE -> privatePosts
+        selectedProfileTab == ProfileContentTab.REPOSTS -> emptyList()
         selectedCollectionId != null -> savedCollectionPosts
-        else -> savedPosts
+        selectedProfileTab == ProfileContentTab.SAVED -> savedPosts
+        else -> likedPosts
     }
     val name = person?.name ?: user?.name.orEmpty().ifBlank { "Topline User" }
     val username = person?.username ?: user?.username.orEmpty()
     val bio = person?.bio ?: user?.bio.orEmpty()
     val location = person?.location ?: user?.location.orEmpty()
+    val selectProfileTab: (ProfileContentTab) -> Unit = { tab ->
+        selectedProfileTab = tab
+        selectedCollectionId = null
+        when (tab) {
+            ProfileContentTab.SAVED -> {
+                onLoadSavedPosts()
+                onLoadSavedCollections()
+            }
+            ProfileContentTab.LIKED -> onLoadLikedPosts()
+            else -> Unit
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
@@ -1490,12 +1502,27 @@ fun UserProfileScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
             }
             Text(if (username.isBlank()) "Profile" else "@$username", fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             if (isOwnProfile) {
-                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
+                val menuIconTint = MaterialTheme.colorScheme.onSurface
+                IconButton(onClick = { isProfileMenuOpen = true }) {
+                    Canvas(Modifier.size(24.dp)) {
+                        val lineStart = 4.dp.toPx()
+                        val lineEnd = size.width - lineStart
+                        val strokeWidth = 2.dp.toPx()
+                        listOf(6.dp, 12.dp, 18.dp).forEach { y ->
+                            drawLine(
+                                color = menuIconTint,
+                                start = Offset(lineStart, y.toPx()),
+                                end = Offset(lineEnd, y.toPx()),
+                                strokeWidth = strokeWidth,
+                            )
+                        }
+                    }
+                }
             }
         }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -1546,35 +1573,12 @@ fun UserProfileScreen(
                         }
                     }
                     if (isOwnProfile) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            TextButton(onClick = {
-                                showingSavedPosts = false
-                                selectedCollectionId = null
-                            }) {
-                                Text(
-                                    "Posts",
-                                    color = if (!showingSavedPosts) Orange else Color.Gray,
-                                    fontWeight = if (!showingSavedPosts) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            }
-                            TextButton(onClick = {
-                                showingSavedPosts = true
-                                selectedCollectionId = null
-                                onLoadSavedPosts()
-                                onLoadSavedCollections()
-                            }) {
-                                Text(
-                                    "Saved",
-                                    color = if (showingSavedPosts) Orange else Color.Gray,
-                                    fontWeight = if (showingSavedPosts) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            }
-                        }
+                        ProfileContentTabRow(
+                            selectedTab = selectedProfileTab,
+                            onSelectTab = selectProfileTab,
+                        )
                     }
-                    if (isOwnProfile && showingSavedPosts) {
+                    if (isOwnProfile && selectedProfileTab == ProfileContentTab.SAVED) {
                         if (!savedCollectionsError.isNullOrBlank()) {
                             Text(
                                 savedCollectionsError,
@@ -1624,22 +1628,34 @@ fun UserProfileScreen(
                     Spacer(Modifier.height(10.dp))
                 }
             }
-            if (showingSavedPosts && isSavedPostsLoading && displayedPosts.isEmpty()) {
+            if (
+                ((selectedProfileTab == ProfileContentTab.SAVED && isSavedPostsLoading) ||
+                    (selectedProfileTab == ProfileContentTab.LIKED && isLikedPostsLoading)) &&
+                displayedPosts.isEmpty()
+            ) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = Orange)
                     }
                 }
-            } else if (showingSavedPosts && !savedPostsError.isNullOrBlank() && displayedPosts.isEmpty()) {
+            } else if (
+                ((selectedProfileTab == ProfileContentTab.SAVED && !savedPostsError.isNullOrBlank()) ||
+                    (selectedProfileTab == ProfileContentTab.LIKED && !likedPostsError.isNullOrBlank())) &&
+                displayedPosts.isEmpty()
+            ) {
                 item {
                     Text(
-                        savedPostsError,
+                        if (selectedProfileTab == ProfileContentTab.SAVED) savedPostsError.orEmpty()
+                        else likedPostsError.orEmpty(),
                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
                 }
-            } else if (!showingSavedPosts && !errorMessage.isNullOrBlank()) {
+            } else if (
+                (selectedProfileTab == ProfileContentTab.POSTS || selectedProfileTab == ProfileContentTab.PRIVATE) &&
+                !errorMessage.isNullOrBlank()
+            ) {
                 item {
                     Text(
                         errorMessage,
@@ -1656,20 +1672,33 @@ fun UserProfileScreen(
                     ) {
                         Text(
                             when {
+                                selectedProfileTab == ProfileContentTab.REPOSTS ->
+                                    "Reposts aren’t available yet"
                                 selectedCollectionId != null && activeSavedCollection?.id == selectedCollectionId ->
                                     "This collection is empty"
-                                showingSavedPosts -> "No saved videos yet"
-                                else -> "No posts yet"
+                                selectedProfileTab == ProfileContentTab.SAVED -> "No saved videos yet"
+                                selectedProfileTab == ProfileContentTab.LIKED -> "No liked videos yet"
+                                selectedProfileTab == ProfileContentTab.PRIVATE -> "No private videos yet"
+                                else -> "No public posts yet"
                             },
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            if (selectedCollectionId != null && activeSavedCollection?.id == selectedCollectionId) {
-                                "Add saved videos to this collection from the share menu."
-                            }
-                            else if (showingSavedPosts) "Tap Save on a video and it will appear here."
-                            else "When this user shares something, it will appear here.",
+                            when {
+                                selectedProfileTab == ProfileContentTab.REPOSTS ->
+                                    "Reposting videos isn’t supported yet."
+                                selectedCollectionId != null && activeSavedCollection?.id == selectedCollectionId ->
+                                    "Add saved videos to this collection from the share menu."
+                                selectedProfileTab == ProfileContentTab.SAVED ->
+                                    "Tap Save on a video and it will appear here."
+                                selectedProfileTab == ProfileContentTab.LIKED ->
+                                    "Videos you like will appear here."
+                                selectedProfileTab == ProfileContentTab.PRIVATE ->
+                                    "Videos shared with followers or restricted visibility appear here."
+                                else ->
+                                    "When this user shares something publicly, it will appear here."
+                            },
                             color = Color.Gray,
                         )
                     }
@@ -1703,12 +1732,12 @@ fun UserProfileScreen(
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop,
                                     )
-                                } else {
+                                } else if (videoUrl == null) {
                                     Text(post.text, modifier = Modifier.padding(8.dp), maxLines = 4)
                                 }
                                 if (videoUrl != null) {
                                     Icon(
-                                        Icons.Default.PlayArrow,
+                                        BootstrapIcons.Play(),
                                         contentDescription = "Video",
                                         modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
                                         tint = Color.White,
@@ -1737,6 +1766,145 @@ fun UserProfileScreen(
             )
         }
     }
+    if (isProfileMenuOpen) {
+        Dialog(
+            onDismissRequest = { isProfileMenuOpen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable { isProfileMenuOpen = false },
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.86f)
+                        .widthIn(max = 340.dp)
+                        .clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .clickable(onClick = {}),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 12.dp, top = 20.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Menu",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        IconButton(onClick = { isProfileMenuOpen = false }) {
+                            Icon(BootstrapIcons.Close(), contentDescription = "Close menu")
+                        }
+                    }
+                    HorizontalDivider()
+                    ProfileMenuItem("Creator dashboard", BootstrapIcons.GridFill()) {
+                        isProfileMenuOpen = false
+                        onDashboard()
+                    }
+                    ProfileMenuItem("Notifications", BootstrapIcons.Bell()) {
+                        isProfileMenuOpen = false
+                        onNotifications()
+                    }
+                    ProfileMenuItem("Saved videos", BootstrapIcons.Bookmark()) {
+                        isProfileMenuOpen = false
+                        selectProfileTab(ProfileContentTab.SAVED)
+                    }
+                    ProfileMenuItem("Liked videos", BootstrapIcons.Heart()) {
+                        isProfileMenuOpen = false
+                        selectProfileTab(ProfileContentTab.LIKED)
+                    }
+                    ProfileMenuItem("Edit profile", BootstrapIcons.Edit()) {
+                        isProfileMenuOpen = false
+                        onEditProfile()
+                    }
+                    ProfileMenuItem("Settings", BootstrapIcons.Settings()) {
+                        isProfileMenuOpen = false
+                        onSettings()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+private enum class ProfileContentTab(val description: String) {
+    POSTS("Public posts"),
+    PRIVATE("Private videos"),
+    REPOSTS("Reposts"),
+    SAVED("Saved videos"),
+    LIKED("Liked videos"),
+}
+
+@Composable
+private fun ProfileContentTabRow(
+    selectedTab: ProfileContentTab,
+    onSelectTab: (ProfileContentTab) -> Unit,
+) {
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        ProfileContentTab.values().forEach { tab ->
+            val selected = tab == selectedTab
+            Column(
+                modifier = Modifier.weight(1f).height(48.dp).clickable { onSelectTab(tab) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                val tabIcon = when (tab) {
+                    ProfileContentTab.POSTS -> BootstrapIcons.GridFill()
+                    ProfileContentTab.PRIVATE -> BootstrapIcons.Lock()
+                    ProfileContentTab.REPOSTS -> BootstrapIcons.ArrowRepeat()
+                    ProfileContentTab.SAVED -> BootstrapIcons.BookmarkFill()
+                    ProfileContentTab.LIKED -> BootstrapIcons.HeartFill()
+                }
+                Icon(
+                    imageVector = tabIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = if (selected) contentColor else contentColor.copy(alpha = 0.62f),
+                )
+                if (selected) {
+                    Spacer(
+                        Modifier
+                            .fillMaxWidth(0.58f)
+                            .height(2.dp)
+                            .background(contentColor),
+                    )
+                } else {
+                    Spacer(Modifier.height(2.dp))
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1763,7 +1931,7 @@ private fun ProfileVideoViewer(
                 if (videoUrl != null) {
                     ProfileVideoPage(
                         post = post,
-                        videoUrl = cloudinaryPlaybackUrl(videoUrl),
+                        videoUrl = videoUrl,
                         isActive = pagerState.currentPage == page,
                     )
                 }
@@ -1773,7 +1941,7 @@ private fun ProfileVideoViewer(
                 modifier = Modifier.align(Alignment.TopStart).padding(12.dp)
                     .clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)),
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Close video", tint = Color.White)
+                Icon(BootstrapIcons.Close(), contentDescription = "Close video", tint = Color.White)
             }
             Text(
                 "${pagerState.currentPage + 1} / ${posts.size}",
@@ -1793,13 +1961,17 @@ private fun ProfileVideoPage(
     isActive: Boolean,
 ) {
     val context = LocalContext.current
+    val playbackUrl = remember(videoUrl) { cloudinaryPlaybackUrl(videoUrl) }
     var playbackError by remember(videoUrl) { mutableStateOf(false) }
-    var isPlaying by remember(videoUrl) { mutableStateOf(true) }
+    var originalUrlFallbackUsed by remember(videoUrl) { mutableStateOf(false) }
+    var isPlaying by remember(videoUrl) { mutableStateOf(isActive) }
+    var isBuffering by remember(videoUrl) { mutableStateOf(true) }
     val exoPlayer = remember(context, videoUrl) {
         ExoPlayer.Builder(context).build().apply {
             addListener(object : Player.Listener {
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     playbackError = true
+                    isBuffering = false
                     isPlaying = false
                 }
 
@@ -1808,13 +1980,26 @@ private fun ProfileVideoPage(
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    isBuffering = playbackState == Player.STATE_BUFFERING
                     if (playbackState == Player.STATE_READY) playbackError = false
                 }
             })
-            setMediaItem(MediaItem.fromUri(videoUrl))
+            setMediaItem(MediaItem.fromUri(playbackUrl))
             repeatMode = Player.REPEAT_MODE_ONE
             prepare()
-            playWhenReady = true
+            playWhenReady = isActive
+        }
+    }
+
+    LaunchedEffect(exoPlayer, playbackError) {
+        if (!playbackError) return@LaunchedEffect
+        if (!originalUrlFallbackUsed && playbackUrl != videoUrl) {
+            originalUrlFallbackUsed = true
+            playbackError = false
+            isBuffering = true
+            exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = isActive
         }
     }
 
@@ -1840,6 +2025,13 @@ private fun ProfileVideoPage(
             factory = { PlayerView(it).apply { player = exoPlayer; useController = false } },
             modifier = Modifier.fillMaxSize(),
         )
+        if (isBuffering && !playbackError && isActive) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center).size(42.dp),
+                color = Color.White,
+                strokeWidth = 3.dp,
+            )
+        }
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(220.dp)
                 .background(
@@ -1862,7 +2054,7 @@ private fun ProfileVideoPage(
         }
         if (!isPlaying && !playbackError) {
             Icon(
-                Icons.Default.PlayArrow,
+                BootstrapIcons.Play(),
                 contentDescription = "Play video",
                 modifier = Modifier.align(Alignment.Center).size(68.dp),
                 tint = Color.White.copy(alpha = 0.9f),
@@ -1880,7 +2072,10 @@ private fun ProfileVideoPage(
                 )
                 TextButton(onClick = {
                     playbackError = false
-                    exoPlayer.seekTo(0)
+                    isBuffering = true
+                    exoPlayer.setMediaItem(
+                        MediaItem.fromUri(if (originalUrlFallbackUsed) videoUrl else playbackUrl),
+                    )
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = isActive
                 }) {
@@ -1909,7 +2104,7 @@ private fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showBack && onBack != null) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            IconButton(onClick = onBack) { Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back") }
         } else {
             Spacer(Modifier.width(8.dp))
         }

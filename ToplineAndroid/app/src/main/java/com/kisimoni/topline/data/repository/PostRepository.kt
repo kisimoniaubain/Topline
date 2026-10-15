@@ -38,6 +38,7 @@ import com.kisimoni.topline.data.api.InboxResponse
 import com.kisimoni.topline.data.api.MessageThreadResponse
 import com.kisimoni.topline.data.api.PeopleResponse
 import com.kisimoni.topline.data.api.PostListResponse
+import com.kisimoni.topline.data.api.PostShareResponse
 import com.kisimoni.topline.data.api.PostAnalyticsResponse
 import com.kisimoni.topline.data.api.SendMessageRequest
 import com.kisimoni.topline.data.api.UpdateMessageRequest
@@ -139,6 +140,10 @@ class PostRepository(
 
     suspend fun toggleSavedPost(postId: String): SavedPostStateResponse = withContext(Dispatchers.IO) {
         apiService.toggleSavedPost(postId)
+    }
+
+    suspend fun recordPostShare(postId: String): PostShareResponse = withContext(Dispatchers.IO) {
+        apiService.recordPostShare(postId)
     }
 
     suspend fun getMyPosts(token: String): PostListResponse = withContext(Dispatchers.IO) {
@@ -358,6 +363,7 @@ class PostRepository(
     suspend fun downloadVideoWithWatermark(
         videoUrl: String,
         creatorUsername: String,
+        onProgress: suspend (String, Float?) -> Unit = { _, _ -> },
     ): Uri = withContext(Dispatchers.IO) {
         val appContext = context ?: throw IllegalStateException("Context is required to download videos.")
         val parsedUrl = videoUrl.toHttpUrlOrNull()
@@ -369,6 +375,7 @@ class PostRepository(
         val sourceFile = File.createTempFile("topline_download_source_", ".video", appContext.cacheDir)
         var watermarkedFile: File? = null
         try {
+            onProgress("Downloading video", null)
             val request = okhttp3.Request.Builder().url(parsedUrl).get().build()
             val response = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -382,13 +389,15 @@ class PostRepository(
                     throw IOException("Unable to download video (HTTP ${it.code}).")
                 }
                 val body = it.body ?: throw IOException("The video download returned no content.")
-                if (body.contentLength() > MAX_UPLOAD_BYTES) {
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_UPLOAD_BYTES) {
                     throw IllegalArgumentException("Videos must be 500 MB or smaller.")
                 }
                 body.byteStream().use { input ->
                     sourceFile.outputStream().use { output ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                         var totalBytes = 0L
+                        var lastProgressBytes = 0L
                         while (true) {
                             val bytesRead = input.read(buffer)
                             if (bytesRead < 0) break
@@ -397,17 +406,29 @@ class PostRepository(
                                 "Videos must be 500 MB or smaller."
                             }
                             output.write(buffer, 0, bytesRead)
+                            if (contentLength > 0L &&
+                                (totalBytes - lastProgressBytes >= 1024 * 1024 || totalBytes == contentLength)
+                            ) {
+                                onProgress(
+                                    "Downloading video",
+                                    (totalBytes.toFloat() / contentLength).coerceIn(0f, 1f),
+                                )
+                                lastProgressBytes = totalBytes
+                            }
                         }
                     }
                 }
             }
 
+            onProgress("Adding watermark and outro", null)
             val renderedFile = VideoEditor.render(
                 appContext,
                 PostMediaEdit(videoClips = listOf(VideoClipEdit(Uri.fromFile(sourceFile)))),
-                creatorUsername,
+                watermarkUsername = creatorUsername,
+                appendEndCard = true,
             )
             watermarkedFile = renderedFile
+            onProgress("Saving to gallery", null)
             publishVideoToGallery(appContext, renderedFile)
         } finally {
             if (sourceFile.exists() && !sourceFile.delete()) {

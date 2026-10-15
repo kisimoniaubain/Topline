@@ -1,5 +1,7 @@
 package com.kisimoni.topline.navigation
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,16 +13,15 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -91,7 +92,14 @@ fun ToplineNavGraph(
 
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val mainRoutes = setOf(Routes.HOME, Routes.PEOPLE, Routes.UPLOAD, Routes.MESSAGES, Routes.PROFILE)
+    val mainRoutes = setOf(
+        Routes.HOME,
+        Routes.PEOPLE,
+        Routes.UPLOAD,
+        Routes.MESSAGES,
+        Routes.PROFILE,
+        Routes.NOTIFICATIONS,
+    )
     val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(hasActiveNetworkRequest) {
@@ -205,7 +213,7 @@ fun ToplineNavGraph(
                     ) {
                     BottomTab(
                         label = "Home",
-                        selected = currentRoute == Routes.HOME,
+                        selected = currentRoute == Routes.HOME || currentRoute == Routes.NOTIFICATIONS,
                         onClick = { navController.navigate(Routes.HOME) { launchSingleTop = true } },
                     ) {
                         HomeOutlineIcon()
@@ -215,7 +223,7 @@ fun ToplineNavGraph(
                         selected = currentRoute == Routes.PEOPLE,
                         onClick = { navController.navigate(Routes.PEOPLE) { launchSingleTop = true } },
                     ) {
-                        PeopleOutlineIcon()
+                        UserGroupIcon()
                     }
                     Box(
                         modifier = Modifier
@@ -228,17 +236,34 @@ fun ToplineNavGraph(
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .background(colorScheme.primary, CircleShape),
+                            modifier = Modifier.size(width = 76.dp, height = 48.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                tint = colorScheme.onPrimary,
-                                modifier = Modifier.size(30.dp),
+                            Box(
+                                Modifier
+                                    .size(width = 68.dp, height = 40.dp)
+                                    .offset(x = (-4).dp)
+                                    .background(Color(0xFFFF8500), RoundedCornerShape(15.dp)),
                             )
+                            Box(
+                                Modifier
+                                    .size(width = 68.dp, height = 40.dp)
+                                    .offset(x = 4.dp)
+                                    .background(Color.White, RoundedCornerShape(15.dp)),
+                            )
+                            Box(
+                                Modifier
+                                    .size(width = 64.dp, height = 36.dp)
+                                    .background(Color.Black, RoundedCornerShape(13.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    BootstrapIcons.Add(),
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
                         }
                     }
                     BottomTab(
@@ -471,6 +496,9 @@ fun ToplineNavGraph(
                     user = profileUser,
                     posts = profilePosts,
                     savedPosts = postState.savedPosts,
+                    likedPosts = postState.likedPosts,
+                    isLikedPostsLoading = postState.isLikedPostsLoading,
+                    likedPostsError = postState.likedPostsError,
                     savedCollections = postState.savedCollections,
                     savedCollectionPosts = postState.savedCollectionPosts,
                     activeSavedCollection = postState.activeSavedCollection,
@@ -488,9 +516,17 @@ fun ToplineNavGraph(
                     isFollowing = selectedPerson?.isFollowing == true || otherProfileState.isFollowing,
                     onBack = { navController.popBackStack() },
                     onLoadSavedPosts = postViewModel::loadSavedPosts,
+                    onLoadLikedPosts = {
+                        authViewModel.tokenOrNull()?.let(postViewModel::loadLikedPosts)
+                    },
                     onLoadSavedCollections = { postViewModel.loadSavedCollections() },
                     onLoadSavedCollectionPosts = postViewModel::loadSavedCollectionPosts,
                     onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onDashboard = { navController.navigate(Routes.DASHBOARD) },
+                    onNotifications = {
+                        postViewModel.loadNotifications()
+                        navController.navigate(Routes.NOTIFICATIONS)
+                    },
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
                     onMessage = {
                         messageContact = selectedPerson?.name

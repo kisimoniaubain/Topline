@@ -18,7 +18,9 @@ import com.kisimoni.topline.data.repository.PostMediaEdit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 import org.json.JSONObject
 import retrofit2.HttpException
@@ -41,6 +43,9 @@ data class PostUiState(
     val savedPosts: List<PostItem> = emptyList(),
     val isSavedPostsLoading: Boolean = false,
     val savedPostsError: String? = null,
+    val likedPosts: List<PostItem> = emptyList(),
+    val isLikedPostsLoading: Boolean = false,
+    val likedPostsError: String? = null,
     val savedCollections: List<SavedCollection> = emptyList(),
     val savedCollectionPosts: List<PostItem> = emptyList(),
     val activeSavedCollection: SavedCollection? = null,
@@ -103,6 +108,12 @@ data class NotificationsUiState(
     val unreadCount: Int = 0,
     val errorMessage: String? = null,
 )
+
+private fun List<PostItem>.withSavesCount(postId: String, count: Int): List<PostItem> =
+    map { post -> if (post.id == postId) post.copy(savesCount = count) else post }
+
+private fun List<PostItem>.withSharesCount(postId: String, count: Int): List<PostItem> =
+    map { post -> if (post.id == postId) post.copy(sharesCount = maxOf(post.sharesCount, count)) else post }
 
 class PostViewModel(
     private val postRepository: PostRepository,
@@ -479,6 +490,29 @@ class PostViewModel(
         }
     }
 
+    fun loadLikedPosts(token: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLikedPostsLoading = true, likedPostsError = null)
+            try {
+                val likedIds = postRepository.getMyLikedPosts().likedPostIds.toSet()
+                val candidates = buildList {
+                    addAll(postRepository.getPosts(token).posts)
+                    addAll(postRepository.getMyPosts(token).posts)
+                    addAll(postRepository.getFollowingPosts(token).posts)
+                }.distinctBy { it.id }
+                _uiState.value = _uiState.value.copy(
+                    likedPosts = candidates.filter { it.id in likedIds },
+                    isLikedPostsLoading = false,
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLikedPostsLoading = false,
+                    likedPostsError = errorMessage(e, "Unable to load liked videos."),
+                )
+            }
+        }
+    }
+
     fun loadSavedCollections(postId: String? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -595,10 +629,18 @@ class PostViewModel(
                         _uiState.value.savedPostIds - postId
                     },
                     savedPosts = if (response.isSaved) {
-                        _uiState.value.savedPosts
+                        _uiState.value.savedPosts.withSavesCount(postId, response.savesCount)
                     } else {
-                        _uiState.value.savedPosts.filterNot { it.id == postId }
+                        _uiState.value.savedPosts
+                            .filterNot { it.id == postId }
+                            .withSavesCount(postId, response.savesCount)
                     },
+                    posts = _uiState.value.posts.withSavesCount(postId, response.savesCount),
+                    followingPosts = _uiState.value.followingPosts.withSavesCount(postId, response.savesCount),
+                    ownPosts = _uiState.value.ownPosts.withSavesCount(postId, response.savesCount),
+                    likedPosts = _uiState.value.likedPosts.withSavesCount(postId, response.savesCount),
+                    savedCollectionPosts = _uiState.value.savedCollectionPosts
+                        .withSavesCount(postId, response.savesCount),
                 )
                 onSuccess?.invoke(response.isSaved)
             } catch (e: Exception) {
@@ -606,6 +648,28 @@ class PostViewModel(
                     errorMessage = errorMessage(e, "Unable to save this video."),
                 )
                 onSuccess?.invoke(_uiState.value.savedPostIds.contains(postId))
+            }
+        }
+    }
+
+    fun recordPostShare(postId: String, onFailure: ((String) -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val response = postRepository.recordPostShare(postId)
+                val updatedState = _uiState.value
+                _uiState.value = updatedState.copy(
+                    posts = updatedState.posts.withSharesCount(postId, response.sharesCount),
+                    followingPosts = updatedState.followingPosts.withSharesCount(postId, response.sharesCount),
+                    ownPosts = updatedState.ownPosts.withSharesCount(postId, response.sharesCount),
+                    savedPosts = updatedState.savedPosts.withSharesCount(postId, response.sharesCount),
+                    likedPosts = updatedState.likedPosts.withSharesCount(postId, response.sharesCount),
+                    savedCollectionPosts = updatedState.savedCollectionPosts
+                        .withSharesCount(postId, response.sharesCount),
+                )
+            } catch (e: Exception) {
+                val message = errorMessage(e, "Unable to count this share.")
+                _uiState.value = _uiState.value.copy(errorMessage = message)
+                onFailure?.invoke(message)
             }
         }
     }
@@ -732,11 +796,17 @@ class PostViewModel(
     fun downloadVideoWithWatermark(
         videoUrl: String,
         creatorUsername: String,
+        onProgress: (String, Float?) -> Unit = { _, _ -> },
         onResult: (Result<Uri>) -> Unit,
     ) {
         viewModelScope.launch {
             try {
-                onResult(Result.success(postRepository.downloadVideoWithWatermark(videoUrl, creatorUsername)))
+                val result = postRepository.downloadVideoWithWatermark(videoUrl, creatorUsername) { stage, progress ->
+                    withContext(Dispatchers.Main.immediate) {
+                        onProgress(stage, progress)
+                    }
+                }
+                onResult(Result.success(result))
             } catch (error: Exception) {
                 onResult(Result.failure(error))
             }

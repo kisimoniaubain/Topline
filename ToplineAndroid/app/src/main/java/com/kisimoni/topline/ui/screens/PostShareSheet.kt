@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,13 +19,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +54,9 @@ fun PostShareSheet(
     contacts: List<InboxContact>,
     isSaved: Boolean,
     isDownloading: Boolean,
+    isDownloadBusy: Boolean,
+    downloadStatus: String?,
+    downloadProgress: Float?,
     isLoadingContacts: Boolean,
     onCopyLink: () -> Unit,
     onShareToApps: () -> Unit,
@@ -66,6 +64,7 @@ fun PostShareSheet(
     onSave: () -> Unit,
     onManageCollections: () -> Unit,
     onSendToContact: (InboxContact, String, (Boolean, String?) -> Unit) -> Unit,
+    onShareCompleted: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var message by remember(post.id) { mutableStateOf("") }
@@ -87,7 +86,7 @@ fun PostShareSheet(
                 Text("Share", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Share, contentDescription = "Close share options", tint = colorScheme.onSurfaceVariant)
+                    Icon(BootstrapIcons.Share(), contentDescription = "Close share options", tint = colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -108,7 +107,7 @@ fun PostShareSheet(
                         Modifier.size(58.dp).clip(RoundedCornerShape(8.dp)).background(colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, tint = ShareOrange)
+                        Icon(BootstrapIcons.Share(), contentDescription = null, tint = ShareOrange)
                     }
                 }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -127,38 +126,57 @@ fun PostShareSheet(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 ShareAction(
-                    icon = Icons.Default.ContentCopy,
+                    icon = BootstrapIcons.Copy(),
                     label = "Copy link",
                     onClick = onCopyLink,
                     enabled = !shareUrl.isNullOrBlank(),
                 )
                 ShareAction(
-                    icon = Icons.Default.Share,
+                    icon = BootstrapIcons.Share(),
                     label = "Other apps",
                     onClick = onShareToApps,
                     enabled = !shareUrl.isNullOrBlank(),
                 )
                 ShareAction(
-                    icon = Icons.Default.Download,
+                    icon = BootstrapIcons.Download(),
                     label = if (isDownloading) "Saving…" else "Download",
                     onClick = onDownload,
-                    enabled = !isDownloading && post.playableVideoUrl() != null,
+                    enabled = !isDownloadBusy && post.playableVideoUrl() != null,
                     isLoading = isDownloading,
                 )
                 ShareAction(
-                    icon = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    icon = if (isSaved) BootstrapIcons.BookmarkFill() else BootstrapIcons.Bookmark(),
                     label = if (isSaved) "Saved" else "Bookmark",
                     onClick = onSave,
                     tint = if (isSaved) ShareOrange else colorScheme.onSurface,
                 )
                 ShareAction(
-                    icon = Icons.Default.BookmarkBorder,
+                    icon = BootstrapIcons.Bookmark(),
                     label = "Collections",
                     onClick = onManageCollections,
                 )
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            if (isDownloading && !downloadStatus.isNullOrBlank()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = ShareOrange,
+                        strokeWidth = 2.dp,
+                    )
+                    Text(
+                        downloadProgress?.let { "$downloadStatus · ${(it * 100).toInt()}%" }
+                            ?: downloadStatus,
+                        color = colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
             Text(
                 "Send to",
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -204,6 +222,7 @@ fun PostShareSheet(
                                             sendingContacts.remove(contact.id)
                                             if (success) {
                                                 sentContacts[contact.id] = true
+                                                onShareCompleted()
                                             } else {
                                                 sendError = error ?: "Unable to send this post."
                                             }
@@ -221,7 +240,7 @@ fun PostShareSheet(
                                         )
                                     } else {
                                         Icon(
-                                            Icons.AutoMirrored.Filled.Send,
+                                            BootstrapIcons.Send(),
                                             contentDescription = "Send to ${contact.name}",
                                             tint = Color.White,
                                             modifier = Modifier.size(15.dp),

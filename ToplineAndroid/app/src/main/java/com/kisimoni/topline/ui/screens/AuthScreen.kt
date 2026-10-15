@@ -1,5 +1,7 @@
 package com.kisimoni.topline.ui.screens
 
+import com.kisimoni.topline.ui.icons.BootstrapIcons
+
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,14 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -127,7 +121,7 @@ fun AuthScreen(
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Name") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        leadingIcon = { Icon(BootstrapIcons.Person(), contentDescription = null) },
                         singleLine = true,
                     )
 
@@ -144,7 +138,7 @@ fun AuthScreen(
                         onValueChange = { email = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Email") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        leadingIcon = { Icon(BootstrapIcons.Email(), contentDescription = null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                     )
@@ -203,7 +197,7 @@ fun AuthScreen(
                                     datePicker.maxDate = System.currentTimeMillis()
                                 }.show()
                             }) {
-                                Icon(Icons.Default.CalendarMonth, contentDescription = "Choose date of birth")
+                                Icon(BootstrapIcons.Calendar(), contentDescription = "Choose date of birth")
                             }
                         },
                     )
@@ -219,7 +213,7 @@ fun AuthScreen(
                             singleLine = true,
                             trailingIcon = {
                                 IconButton(onClick = { isGenderMenuExpanded = true }) {
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Choose gender")
+                                    Icon(BootstrapIcons.ArrowDropDown(), contentDescription = "Choose gender")
                                 }
                             },
                         )
@@ -256,7 +250,7 @@ fun AuthScreen(
                     onValueChange = { password = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    leadingIcon = { Icon(BootstrapIcons.Lock(), contentDescription = null) },
                     visualTransformation = if (isPasswordVisible) {
                         VisualTransformation.None
                     } else {
@@ -268,9 +262,9 @@ fun AuthScreen(
                         IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                             Icon(
                                 imageVector = if (isPasswordVisible) {
-                                    Icons.Default.VisibilityOff
+                                    BootstrapIcons.EyeSlash()
                                 } else {
-                                    Icons.Default.Visibility
+                                    BootstrapIcons.Eye()
                                 },
                                 contentDescription = if (isPasswordVisible) "Hide password" else "Show password",
                             )

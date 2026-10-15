@@ -212,7 +212,13 @@ router.post("/:postId", async (req, res) => {
 
     const existing = await SavedPost.findOneAndDelete({ user: userId, post: postId });
     if (existing) {
-      return res.json({ success: true, isSaved: false, message: "Post removed from your saved posts." });
+      const savesCount = await SavedPost.countDocuments({ post: postId });
+      return res.json({
+        success: true,
+        isSaved: false,
+        savesCount,
+        message: "Post removed from your saved posts.",
+      });
     }
 
     try {
@@ -220,7 +226,8 @@ router.post("/:postId", async (req, res) => {
     } catch (error) {
       if (error.code !== 11000) throw error;
     }
-    return res.status(201).json({ success: true, isSaved: true, message: "Post saved." });
+    const savesCount = await SavedPost.countDocuments({ post: postId });
+    return res.status(201).json({ success: true, isSaved: true, savesCount, message: "Post saved." });
   } catch (error) {
     if (!error.status) {
       console.error("Save post error:", error);

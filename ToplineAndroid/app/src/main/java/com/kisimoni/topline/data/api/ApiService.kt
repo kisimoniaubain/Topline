@@ -222,6 +222,9 @@ interface ApiService {
     @POST("saved/{postId}")
     suspend fun toggleSavedPost(@Path("postId") postId: String): SavedPostStateResponse
 
+    @POST("posts/{postId}/share")
+    suspend fun recordPostShare(@Path("postId") postId: String): PostShareResponse
+
     @POST("likes/{postId}")
     suspend fun toggleLike(
         @Header("Authorization") token: String,
