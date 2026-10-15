@@ -1,5 +1,19 @@
 services:
   - type: web
+    name: topline-web
+    runtime: static
+    plan: free
+    rootDir: ToplineMobile
+    buildCommand: npm ci && npx expo export --platform web
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://topline-api.onrender.com/api
+  - type: web
     name: topline-api
     runtime: node
     plan: free
