@@ -59,7 +59,6 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.PersonOutline
@@ -1227,7 +1226,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val languages = listOf("English", "Kiswahili", "Français", "Nederlands", "العربية", "Español")
 
-    Column(Modifier.fillMaxSize().background(Color(0xFF121315))) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxSize().background(colors.background)) {
         ScreenHeader(title = "User Settings", onBack = onBack)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -1250,12 +1250,12 @@ fun SettingsScreen(
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(
                                 "@${user?.username.orEmpty().ifBlank { "toplineuser" }}",
-                                color = Color.White,
+                                color = colors.onSurface,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
                                 user?.name.orEmpty().ifBlank { "Topline User" },
-                                color = Color(0xFF9EACB8),
+                                color = colors.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -1275,17 +1275,17 @@ fun SettingsScreen(
                         description = "Phone, email, profile details",
                         onClick = onEditProfile,
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SettingsLeadingIcon(Icons.Filled.Lock, Orange)
                         Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-                            Text("Private account", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text("Private account", color = colors.onSurface, fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Only followers can see your posts",
-                                color = Color(0xFF9EACB8),
+                                color = colors.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -1303,7 +1303,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     SettingsItem(
                         icon = Icons.Filled.Visibility,
                         title = "Social interactions",
@@ -1311,7 +1311,7 @@ fun SettingsScreen(
                         trailing = "Inbox",
                         onClick = onMessages,
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     SettingsItem(
                         icon = Icons.Filled.VerifiedUser,
                         title = "Security & permissions",
@@ -1331,25 +1331,25 @@ fun SettingsScreen(
                         description = "Activity, likes, replies, and follows",
                         onClick = onNotifications,
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     SettingsItem(
                         icon = Icons.Filled.Tune,
                         title = "Content preferences",
                         description = "Choose comment access when you publish",
                         onClick = onContentPreferences,
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             SettingsLeadingIcon(Icons.Filled.DarkMode, Orange)
                             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                                Text("Display theme", color = Color.White, fontWeight = FontWeight.SemiBold)
-                                Text("Choose your app appearance", color = Color(0xFF9EACB8), style = MaterialTheme.typography.bodySmall)
+                                Text("Display theme", color = colors.onSurface, fontWeight = FontWeight.SemiBold)
+                                Text("Choose your app appearance", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                                .background(Color(0xFF14161A), RoundedCornerShape(12.dp))
+                                .background(colors.surfaceVariant, RoundedCornerShape(12.dp))
                                 .padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
@@ -1367,7 +1367,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     SettingsItem(
                         icon = Icons.Filled.Translate,
                         title = "Language & playback",
@@ -1387,22 +1387,22 @@ fun SettingsScreen(
                         description = "Send feedback about the app",
                         onClick = onReportProblem,
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     SettingsItem(
                         icon = Icons.Filled.Policy,
                         title = "Community guidelines",
                         description = "Standards for posts and interactions",
                         onClick = { showPolicies = true },
                     )
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.35f))
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        SettingsLeadingIcon(Icons.Filled.Memory, Color(0xFF9EACB8))
+                        SettingsLeadingIcon(Icons.Filled.Memory, colors.onSurfaceVariant)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text("Version", color = Color.White, fontWeight = FontWeight.SemiBold)
-                            Text("Topline 1.1", color = Color(0xFF9EACB8), style = MaterialTheme.typography.bodySmall)
+                            Text("Version", color = colors.onSurface, fontWeight = FontWeight.SemiBold)
+                            Text("Topline 1.1", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             if (!cacheStatus.isNullOrBlank()) {
                                 Text(cacheStatus.orEmpty(), color = Orange, style = MaterialTheme.typography.bodySmall)
                             }
@@ -1580,7 +1580,7 @@ private fun SettingsSectionLabel(title: String) {
     Text(
         title.uppercase(),
         modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
-        color = Color(0xFF9EACB8),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
     )
@@ -1589,7 +1589,7 @@ private fun SettingsSectionLabel(title: String) {
 @Composable
 private fun SettingsLeadingIcon(icon: ImageVector, tint: Color) {
     Box(
-        modifier = Modifier.size(36.dp).background(Color(0xFF292A2C), CircleShape),
+        modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = tint)
@@ -1609,24 +1609,24 @@ private fun SettingsItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingsLeadingIcon(icon, Color.White)
+        SettingsLeadingIcon(icon, MaterialTheme.colorScheme.onSurface)
         Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
             Text(
                 description,
-                color = Color(0xFF9EACB8),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         if (!trailing.isNullOrBlank()) {
-            Text(trailing, color = Color(0xFF9EACB8), style = MaterialTheme.typography.labelSmall)
+            Text(trailing, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.width(4.dp))
         }
         Icon(
             Icons.Filled.ChevronRight,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = Color(0xFF9EACB8),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -1640,19 +1640,22 @@ private fun ThemeChoice(
 ) {
     Row(
         modifier = modifier.clip(RoundedCornerShape(9.dp))
-            .background(if (selected) Color(0xFF292A2C) else Color.Transparent)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else Color.Transparent,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(
-            Modifier.size(9.dp).background(if (selected) Orange else Color(0xFF584235), CircleShape),
+            Modifier.size(9.dp).background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape),
         )
         Text(
             label,
             modifier = Modifier.weight(1f),
-            color = if (selected) Color.White else Color(0xFF9EACB8),
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
         )
         if (selected) {
@@ -1921,7 +1924,7 @@ fun UserProfileScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = profileSurface, contentColor = profileText),
                             ) {
-                                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(BootstrapIcons.Share(), contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.size(6.dp))
                                 Text("Share profile")
                             }
@@ -1929,7 +1932,7 @@ fun UserProfileScreen(
                                 onClick = { selectProfileTab(ProfileContentTab.SAVED) },
                                 modifier = Modifier.size(42.dp).background(profileSurface, RoundedCornerShape(10.dp)),
                             ) {
-                                Icon(Icons.Filled.Bookmark, contentDescription = "Saved videos", tint = profileText)
+                                Icon(BootstrapIcons.BookmarkFill(), contentDescription = "Saved videos", tint = profileText)
                             }
                         } else if (person != null) {
                             Button(
@@ -2214,7 +2217,7 @@ fun UserProfileScreen(
                         isProfileMenuOpen = false
                         onNotifications()
                     }
-                    ProfileMenuItem("Saved videos", BootstrapIcons.Bookmark()) {
+                    ProfileMenuItem("Saved videos", BootstrapIcons.BookmarkFill()) {
                         isProfileMenuOpen = false
                         selectProfileTab(ProfileContentTab.SAVED)
                     }
@@ -2286,7 +2289,7 @@ private fun ProfileContentTabRow(
                     ProfileContentTab.POSTS -> Icons.Filled.GridView
                     ProfileContentTab.PRIVATE -> Icons.Filled.Lock
                     ProfileContentTab.REPOSTS -> Icons.Filled.Repeat
-                    ProfileContentTab.SAVED -> Icons.Filled.Bookmark
+                    ProfileContentTab.SAVED -> BootstrapIcons.BookmarkFill()
                     ProfileContentTab.LIKED -> Icons.Filled.Favorite
                 }
                 Icon(

@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.kisimoni.topline.data.api.ApiService
+import com.kisimoni.topline.data.api.bearerAuthorization
 import com.kisimoni.topline.data.api.CommentListResponse
 import com.kisimoni.topline.data.api.CommentLikeStateResponse
 import com.kisimoni.topline.data.api.ActivityNotification
@@ -62,11 +63,11 @@ class PostRepository(
     private val context: Context? = null,
 ) {
     suspend fun getPosts(token: String?): PostListResponse = withContext(Dispatchers.IO) {
-        apiService.getPosts(token?.let { "Bearer $it" })
+        apiService.getPosts(token?.let(::bearerAuthorization))
     }
 
     suspend fun getFollowingPosts(token: String): PostListResponse = withContext(Dispatchers.IO) {
-        apiService.getFollowingPosts("Bearer $token")
+        apiService.getFollowingPosts(bearerAuthorization(token))
     }
 
     suspend fun getNotifications(): NotificationsResponse = withContext(Dispatchers.IO) {
@@ -147,7 +148,7 @@ class PostRepository(
     }
 
     suspend fun getMyPosts(token: String): PostListResponse = withContext(Dispatchers.IO) {
-        apiService.getMyPosts("Bearer $token")
+        apiService.getMyPosts(bearerAuthorization(token))
     }
 
     suspend fun createPost(
@@ -279,7 +280,7 @@ class PostRepository(
     }
 
     suspend fun getFollowState(userId: String, token: String? = null): FollowStateResponse = withContext(Dispatchers.IO) {
-        apiService.getFollowState(token?.let { "Bearer $it" }, userId)
+        apiService.getFollowState(token?.let(::bearerAuthorization), userId)
     }
 
     suspend fun toggleFollow(token: String, userId: String): FollowStateResponse = withContext(Dispatchers.IO) {

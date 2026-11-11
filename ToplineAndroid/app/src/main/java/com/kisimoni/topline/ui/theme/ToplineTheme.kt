@@ -15,6 +15,10 @@ private val ToplineLightColors = lightColorScheme(
     onSurface = Color(0xFF0A0A0A),
     secondary = Color(0xFF0A0A0A),
     onSecondary = Color.White,
+    surfaceVariant = Color(0xFFF0F1F3),
+    onSurfaceVariant = Color(0xFF5F6368),
+    outline = Color(0xFF8A8D91),
+    outlineVariant = Color(0xFFD9DADD),
 )
 
 private val ToplineDarkColors = darkColorScheme(

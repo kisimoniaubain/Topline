@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.Activity
 import android.graphics.Bitmap
 import android.content.Context
+import android.content.res.ColorStateList
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,12 +92,23 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.runtime.rememberCoroutineScope
 
-private val LoginBackground = Color(0xFF121315)
-private val LoginPanel = Color(0xFF14161A)
-private val LoginField = Color(0xFF1B1C1E)
-private val LoginOrange = Color(0xFFFF7A00)
-private val LoginSecondary = Color(0xFF9EACB8)
-private val LoginMuted = Color(0xFFA78B7C)
+@Composable
+private fun loginBackground() = MaterialTheme.colorScheme.background
+
+@Composable
+private fun loginPanel() = MaterialTheme.colorScheme.surface
+
+@Composable
+private fun loginField() = MaterialTheme.colorScheme.surfaceVariant
+
+@Composable
+private fun loginAccent() = MaterialTheme.colorScheme.primary
+
+@Composable
+private fun loginSecondary() = MaterialTheme.colorScheme.onSurfaceVariant
+
+@Composable
+private fun loginMuted() = MaterialTheme.colorScheme.outline
 private const val LOGIN_PREFERENCES = "topline_login_preferences"
 private const val REMEMBERED_IDENTIFIER = "remembered_identifier"
 
@@ -234,7 +246,7 @@ fun AuthScreen(
         )
     } else {
     Box(
-        modifier = Modifier.fillMaxSize().background(LoginBackground),
+        modifier = Modifier.fillMaxSize().background(loginBackground()),
     ) {
         Column(
             modifier = Modifier
@@ -255,12 +267,12 @@ fun AuthScreen(
                 )
                 IconButton(
                     onClick = { showHelp = true },
-                    modifier = Modifier.size(40.dp).background(LoginField, CircleShape),
+                    modifier = Modifier.size(40.dp).background(loginField(), CircleShape),
                 ) {
                     Icon(
                         Icons.AutoMirrored.Outlined.HelpOutline,
                         contentDescription = "Help and support",
-                        tint = LoginSecondary,
+                        tint = loginSecondary(),
                     )
                 }
             }
@@ -268,7 +280,7 @@ fun AuthScreen(
             Spacer(Modifier.height(24.dp))
             Text(
                 text = if (isLoginMode) "Log in to Topline" else "Create your account",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -281,7 +293,7 @@ fun AuthScreen(
                     "Join Topline and connect with others."
                 },
                 modifier = Modifier.padding(top = 8.dp, bottom = 22.dp),
-                color = LoginSecondary,
+                color = loginSecondary(),
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 textAlign = TextAlign.Center,
@@ -290,7 +302,7 @@ fun AuthScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = LoginPanel),
+                colors = CardDefaults.cardColors(containerColor = loginPanel()),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -381,14 +393,14 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Password") },
                         leadingIcon = {
-                            Icon(BootstrapIcons.Lock(), contentDescription = null, tint = LoginSecondary)
+                            Icon(BootstrapIcons.Lock(), contentDescription = null, tint = loginSecondary())
                         },
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                                 Icon(
                                     imageVector = if (isPasswordVisible) BootstrapIcons.EyeSlash() else BootstrapIcons.Eye(),
                                     contentDescription = if (isPasswordVisible) "Hide password" else "Show password",
-                                    tint = LoginSecondary,
+                                    tint = loginSecondary(),
                                 )
                             }
                         },
@@ -414,11 +426,11 @@ fun AuthScreen(
                                     checked = rememberLogin,
                                     onCheckedChange = { rememberLogin = it },
                                     colors = CheckboxDefaults.colors(
-                                        checkedColor = LoginOrange,
-                                        uncheckedColor = LoginSecondary,
+                                        checkedColor = loginAccent(),
+                                        uncheckedColor = loginSecondary(),
                                     ),
                                 )
-                                Text("Remember me", color = LoginSecondary, fontSize = 12.sp)
+                                Text("Remember me", color = loginSecondary(), fontSize = 12.sp)
                             }
                             Text(
                                 "Forgot password?",
@@ -427,7 +439,7 @@ fun AuthScreen(
                                     resetCodeSent = false
                                     showPasswordReset = true
                                 },
-                                color = Color(0xFFFFB68B),
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -444,7 +456,7 @@ fun AuthScreen(
                     if (!uiState.infoMessage.isNullOrBlank()) {
                         Text(
                             text = uiState.infoMessage.orEmpty(),
-                            color = Color(0xFF98D6A5),
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 13.sp,
                         )
                     }
@@ -482,8 +494,8 @@ fun AuthScreen(
                                 password.isNotBlank() && dateOfBirth.isNotBlank()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LoginOrange,
-                            contentColor = Color(0xFF321200),
+                            containerColor = loginAccent(),
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                         shape = RoundedCornerShape(25.dp),
                     ) {
@@ -497,7 +509,7 @@ fun AuthScreen(
                     if (showHelp) {
                         Text(
                             "Choose Forgot password to recover access to your account.",
-                            color = LoginSecondary,
+                            color = loginSecondary(),
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                         )
@@ -511,9 +523,9 @@ fun AuthScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF343537)))
-                Text("OR CONTINUE WITH", color = LoginMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f).height(1.dp).background(Color(0xFF343537)))
+                Spacer(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                Text("OR CONTINUE WITH", color = loginMuted(), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
             }
             if (isLoginMode) {
                 Button(
@@ -560,18 +572,23 @@ fun AuthScreen(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2022)),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF202124),
+                    ),
+                    shape = RoundedCornerShape(14.dp),
                 ) {
-                    Text("Continue with Google", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Continue with Google", fontWeight = FontWeight.Bold)
                 }
 
                 if (BuildConfig.TOPLINE_FACEBOOK_APP_ID.isNotBlank()) {
                     AndroidView(
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
                         factory = { viewContext ->
                             LoginButton(viewContext).apply {
+                                backgroundTintList = ColorStateList.valueOf(android.graphics.Color.rgb(24, 119, 242))
+                                setTextColor(android.graphics.Color.WHITE)
                                 setPermissions("public_profile", "email")
                                 registerCallback(facebookCallbackManager, object : FacebookCallback<LoginResult> {
                                     override fun onSuccess(result: LoginResult) {
@@ -601,9 +618,9 @@ fun AuthScreen(
                             qrMessage = "Set TOPLINE_FACEBOOK_APP_ID in your local Gradle properties."
                             showHelp = true
                         },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2022)),
-                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
+                        shape = RoundedCornerShape(14.dp),
                     ) {
                         Text("Continue with Facebook", color = Color.White, fontWeight = FontWeight.Bold)
                     }
@@ -618,17 +635,20 @@ fun AuthScreen(
                             showQrLogin = true
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2022)),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF25F4EE),
+                        contentColor = Color(0xFF161823),
+                    ),
+                    shape = RoundedCornerShape(14.dp),
                 ) {
-                    Text("Continue with QR code", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Continue with QR code", fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(20.dp))
             Text(
                 text = "By continuing, you agree to Topline’s Terms and Privacy Policy.",
-                color = LoginSecondary,
+                color = loginSecondary(),
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
                 textAlign = TextAlign.Center,
@@ -640,7 +660,7 @@ fun AuthScreen(
             ) {
                 Text(
                     text = if (isLoginMode) "Don't have an account?" else "Already have an account?",
-                    color = LoginSecondary,
+                    color = loginSecondary(),
                     fontSize = 14.sp,
                 )
                 TextButton(onClick = {
@@ -649,7 +669,7 @@ fun AuthScreen(
                 }) {
                     Text(
                         text = if (isLoginMode) "Sign up" else "Log in",
-                        color = LoginOrange,
+                        color = loginAccent(),
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -664,7 +684,7 @@ fun AuthScreen(
             text = { Text(qrMessage.ifBlank { "Choose Forgot password to recover access to your account." }) },
             confirmButton = {
                 TextButton(onClick = { showHelp = false }) {
-                    Text("Done", color = LoginOrange)
+                    Text("Done", color = loginAccent())
                 }
             },
         )
@@ -730,7 +750,7 @@ fun AuthScreen(
                         }
                     },
                 ) {
-                    Text(if (uiState.isLoading) "Please wait…" else if (resetCodeSent) "Reset password" else "Send code", color = LoginOrange)
+                    Text(if (uiState.isLoading) "Please wait…" else if (resetCodeSent) "Reset password" else "Send code", color = loginAccent())
                 }
             },
             dismissButton = {
@@ -759,9 +779,9 @@ fun AuthScreen(
                             contentDescription = "QR code for secure Topline sign-in",
                             modifier = Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp),
                         )
-                    } ?: CircularProgressIndicator(color = LoginOrange)
+                    } ?: CircularProgressIndicator(color = loginAccent())
                     if (qrMessage.isNotBlank()) {
-                        Text(qrMessage, modifier = Modifier.padding(top = 8.dp), color = LoginMuted)
+                        Text(qrMessage, modifier = Modifier.padding(top = 8.dp), color = loginMuted())
                     }
                 }
             },
@@ -807,7 +827,7 @@ private fun GoogleEmailConfirmationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(LoginBackground)
+            .background(loginBackground())
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -818,31 +838,40 @@ private fun GoogleEmailConfirmationScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) {
-                Text("‹  Back", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("‹  Back", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
             }
             Text(
                 "TOPLINE ID",
                 modifier = Modifier
-                    .background(LoginField, RoundedCornerShape(18.dp))
+                    .background(loginField(), RoundedCornerShape(18.dp))
                     .padding(horizontal = 12.dp, vertical = 7.dp),
-                color = LoginSecondary,
+                color = loginSecondary(),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
             )
             TextButton(onClick = onHelp) {
-                Text("Help", color = LoginSecondary)
+                Text("Help", color = loginSecondary())
             }
         }
 
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = loginPanel()),
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         Spacer(Modifier.height(18.dp))
         BrandLogo(
             contentDescription = "Topline",
-            modifier = Modifier.size(width = 92.dp, height = 58.dp),
+            modifier = Modifier.size(width = 104.dp, height = 56.dp),
         )
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(18.dp))
         Text(
             "Enter 6-digit code",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 27.sp,
             lineHeight = 34.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -851,20 +880,20 @@ private fun GoogleEmailConfirmationScreen(
         Text(
             "Your code was sent to",
             modifier = Modifier.padding(top = 8.dp),
-            color = LoginSecondary,
+            color = loginSecondary(),
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
         )
         Text(
             maskedEmail,
             modifier = Modifier.padding(top = 3.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )
         TextButton(onClick = onBack) {
-            Text("Use a different Google account", color = Color(0xFFFF7A00), fontSize = 12.sp)
+            Text("Use a different Google account", color = loginAccent(), fontSize = 12.sp)
         }
 
         Box(
@@ -896,20 +925,20 @@ private fun GoogleEmailConfirmationScreen(
                                 val digit = code.getOrNull(index)?.toString()
                                 Box(
                                     modifier = Modifier
-                                        .size(width = 43.dp, height = 56.dp)
+                                        .size(width = 36.dp, height = 52.dp)
                                         .background(
-                                            if (index == code.length) Color(0xFF1F2022) else LoginField,
+                                            if (index == code.length) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else loginField(),
                                             RoundedCornerShape(12.dp),
                                         ),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (digit != null) {
-                                        Text(digit, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                                        Text(digit, color = MaterialTheme.colorScheme.onSurface, fontSize = 23.sp, fontWeight = FontWeight.Bold)
                                     } else {
                                         Box(
                                             Modifier
                                                 .size(width = 8.dp, height = 3.dp)
-                                                .background(LoginMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp)),
+                                                .background(loginMuted().copy(alpha = 0.6f), RoundedCornerShape(2.dp)),
                                         )
                                     }
                                 }
@@ -932,7 +961,7 @@ private fun GoogleEmailConfirmationScreen(
             Text(
                 infoMessage,
                 modifier = Modifier.padding(top = 6.dp),
-                color = Color(0xFF98D6A5),
+                color = Color(0xFF2E7D32),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
             )
@@ -946,13 +975,13 @@ private fun GoogleEmailConfirmationScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(50.dp),
             enabled = code.length == 6 && !isLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = LoginOrange,
-                contentColor = Color(0xFF321200),
+                containerColor = loginAccent(),
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             ),
             shape = RoundedCornerShape(25.dp),
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF321200))
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text("Verify email", fontWeight = FontWeight.ExtraBold)
             }
@@ -961,7 +990,7 @@ private fun GoogleEmailConfirmationScreen(
         Spacer(Modifier.height(18.dp))
         Text(
             if (resendCountdown > 0) "Resend code in ${resendCountdown}s" else "Didn't receive the email?",
-            color = LoginSecondary,
+            color = loginSecondary(),
             fontSize = 12.sp,
         )
         TextButton(
@@ -970,24 +999,26 @@ private fun GoogleEmailConfirmationScreen(
         ) {
             Text(
                 "Resend email code",
-                color = if (resendCountdown == 0) Color(0xFFFF7A00) else LoginMuted,
+                color = if (resendCountdown == 0) loginAccent() else loginMuted(),
                 fontWeight = FontWeight.SemiBold,
             )
         }
         Text(
             "The code expires in 10 minutes.",
             modifier = Modifier.padding(top = 5.dp),
-            color = LoginMuted,
+            color = loginMuted(),
             fontSize = 11.sp,
             textAlign = TextAlign.Center,
         )
         Text(
             "🔒  Secure Topline account verification",
             modifier = Modifier.padding(top = 18.dp),
-            color = LoginSecondary.copy(alpha = 0.8f),
+            color = loginSecondary().copy(alpha = 0.8f),
             fontSize = 10.sp,
             textAlign = TextAlign.Center,
         )
+        }
+        }
     }
 }
 
@@ -1006,7 +1037,7 @@ private fun AuthField(
         modifier = modifier.fillMaxWidth(),
         label = { Text(label) },
         leadingIcon = leadingIcon?.let { icon ->
-            { Icon(icon, contentDescription = null, tint = LoginSecondary) }
+            { Icon(icon, contentDescription = null, tint = loginSecondary()) }
         },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         singleLine = true,
@@ -1017,13 +1048,13 @@ private fun AuthField(
 
 @Composable
 private fun authFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedContainerColor = LoginField,
-    unfocusedContainerColor = LoginField,
-    focusedBorderColor = LoginOrange,
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    focusedContainerColor = loginField(),
+    unfocusedContainerColor = loginField(),
+    focusedBorderColor = loginAccent(),
     unfocusedBorderColor = Color.Transparent,
-    focusedLabelColor = Color(0xFFFFB68B),
-    unfocusedLabelColor = LoginMuted,
-    cursorColor = LoginOrange,
+    focusedLabelColor = loginAccent(),
+    unfocusedLabelColor = loginMuted(),
+    cursorColor = loginAccent(),
 )

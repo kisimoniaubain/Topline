@@ -18,6 +18,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.json.JSONException
+import org.json.JSONObject
+import retrofit2.HttpException
+import java.io.IOException
 
 data class AuthUiState(
     val isAuthenticated: Boolean = false,
@@ -77,7 +81,7 @@ class AuthViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage ?: "Unable to log in.",
+                    errorMessage = authErrorMessage(e, "Unable to log in."),
                 )
             }
         }
@@ -96,6 +100,25 @@ class AuthViewModel(
             errorMessage = null,
             infoMessage = null,
         )
+    }
+
+    private fun authErrorMessage(error: Exception, fallback: String): String {
+        val httpError = error as? HttpException ?: return error.localizedMessage ?: fallback
+        val body = httpError.response()?.errorBody() ?: return fallback
+        return try {
+            val message = JSONObject(body.string()).optString("message").trim()
+            if (message.isNotBlank() && !message.matches(Regex("(?i)^HTTP\\s+\\d{3}$"))) {
+                message
+            } else {
+                fallback
+            }
+        } catch (parseError: IOException) {
+            Log.w("AuthViewModel", "Unable to read authentication error response.", parseError)
+            fallback
+        } catch (parseError: JSONException) {
+            Log.w("AuthViewModel", "Unable to parse authentication error response.", parseError)
+            fallback
+        }
     }
 
     fun loginWithProvider(
@@ -124,7 +147,7 @@ class AuthViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage ?: "Unable to sign in with this provider.",
+                    errorMessage = authErrorMessage(e, "Unable to sign in with this provider."),
                 )
             }
         }
@@ -144,7 +167,7 @@ class AuthViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage ?: "Unable to confirm your Google account.",
+                    errorMessage = authErrorMessage(e, "Unable to confirm your Google account."),
                 )
             }
         }

@@ -4,15 +4,19 @@ import com.kisimoni.topline.ui.icons.BootstrapIcons
 
 import android.content.Intent
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +32,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +41,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,12 +49,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +70,8 @@ import coil.compose.AsyncImage
 import com.kisimoni.topline.data.api.User
 import com.kisimoni.topline.data.repository.PostMediaEdit
 import com.kisimoni.topline.data.repository.VideoClipEdit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private enum class PublishStep { Select, Edit, Details }
 private data class ClipDraft(
@@ -97,8 +106,6 @@ fun UploadScreen(
     var selectedFilter by remember { mutableStateOf(preferences.getString("filterName", "none") ?: "none") }
     var audience by remember { mutableStateOf(preferences.getString("audience", "public") ?: "public") }
     var allowComments by remember { mutableStateOf(preferences.getBoolean("allowComments", true)) }
-    var showAudienceOptions by remember { mutableStateOf(false) }
-    var showMoreOptions by remember { mutableStateOf(false) }
     var step by remember {
         mutableStateOf(if (videoClips.isEmpty() && selectedPhotoUri == null) PublishStep.Select else PublishStep.Edit)
     }
@@ -180,13 +187,6 @@ fun UploadScreen(
     } else {
         null
     }
-    val steps = listOf("Select", "Edit", "Details")
-    val stepIndex = when (step) {
-        PublishStep.Select -> 0
-        PublishStep.Edit -> 1
-        PublishStep.Details -> 2
-    }
-
     Column(
         modifier = Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
@@ -205,25 +205,18 @@ fun UploadScreen(
             }) {
                 Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
             }
-            Text("Create post", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                when (step) {
+                    PublishStep.Select -> "Create post"
+                    PublishStep.Edit -> "Edit video"
+                    PublishStep.Details -> "Video Editor Post & Publish"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
             Spacer(Modifier.weight(1f))
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            steps.forEachIndexed { index, title ->
-                Text(
-                    text = "${index + 1}. $title",
-                    modifier = Modifier.weight(1f),
-                    color = if (index == stepIndex) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (index == stepIndex) FontWeight.Bold else FontWeight.Normal,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        }
-        HorizontalDivider()
 
         when (step) {
             PublishStep.Select -> {
@@ -421,153 +414,294 @@ fun UploadScreen(
                         enabled = mediaUri != null || text.isNotBlank(),
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57F17)),
-                    ) { Text("Next: post settings") }
+                    ) { Text("Continue to publish") }
                 }
             }
 
             PublishStep.Details -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(top = 8.dp),
-                ) {
+                Column(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Row(
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            OutlinedTextField(
-                                value = text,
-                                onValueChange = { text = it.take(5000) },
-                                modifier = Modifier.weight(1f).height(172.dp),
-                                placeholder = { Text("Add description...") },
-                                supportingText = { Text("${text.length}/5000") },
-                                maxLines = 6,
-                            )
-                            Box(
-                                modifier = Modifier.size(width = 116.dp, height = 172.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF252525)),
-                                contentAlignment = Alignment.Center,
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.Top,
                             ) {
-                                val coverPreview = coverUri ?: selectedPhotoUri
-                                if (coverPreview != null) {
-                                    AsyncImage(
-                                        model = coverPreview,
-                                        contentDescription = "Post cover preview",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
+                                Column(modifier = Modifier.weight(1f)) {
+                                    OutlinedTextField(
+                                        value = text,
+                                        onValueChange = { text = it.take(5000) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        placeholder = { Text("Create a caption… tell your story") },
+                                        supportingText = { Text("${text.length}/5000") },
+                                        minLines = 4,
+                                        maxLines = 4,
+                                        shape = RoundedCornerShape(14.dp),
                                     )
-                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        TextButton(onClick = { text = if (text.isBlank()) "#" else "$text #" }) {
+                                            Text("#  Hashtags", color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        TextButton(onClick = { text = if (text.isBlank()) "@" else "$text @" }) {
+                                            Text("@  Mention")
+                                        }
+                                    }
                                     Text(
-                                        if (isVideo) "Video\ncover" else "Photo",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelLarge,
+                                        "Sharing to Topline",
+                                        modifier = Modifier.padding(start = 8.dp, top = 2.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.labelSmall,
                                     )
                                 }
-                                if (isVideo) {
-                                    TextButton(
-                                        onClick = {
-                                            pickCover.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                            )
-                                        },
-                                        modifier = Modifier.align(Alignment.BottomCenter)
-                                            .fillMaxWidth().background(Color.Black.copy(alpha = 0.65f)),
-                                    ) { Text("Edit cover", color = Color.White) }
+                                Box(
+                                    modifier = Modifier.size(width = 96.dp, height = 144.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    val coverPreview = coverUri ?: if (isVideo) null else selectedPhotoUri
+                                    if (coverPreview != null) {
+                                        AsyncImage(
+                                            model = coverPreview,
+                                            contentDescription = "Post cover preview",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                        )
+                                    } else if (isVideo && mediaUri != null) {
+                                        VideoThumbnail(mediaUri, Modifier.fillMaxSize())
+                                    } else {
+                                        Text("Photo cover", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                    if (isVideo) {
+                                        TextButton(
+                                            onClick = {
+                                                pickCover.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                                )
+                                            },
+                                            modifier = Modifier.align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .background(Color.Black.copy(alpha = 0.68f)),
+                                        ) {
+                                            Text("Edit cover", color = Color.White, maxLines = 1)
+                                        }
+                                    }
                                 }
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = {
-                                text = if (text.isBlank()) "#" else "$text #"
-                            }) { Text("# Hashtags") }
-                            TextButton(onClick = {
-                                text = if (text.isBlank()) "@" else "$text @"
-                            }) { Text("@ Mention") }
+
+                        if (isVideo) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Clips", fontWeight = FontWeight.Bold)
+                                            Text(
+                                                "${videoClips.size}/8 · Drag the handles to trim",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = {
+                                                pickVideos.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
+                                                )
+                                            },
+                                            enabled = videoClips.size < 8,
+                                        ) {
+                                            Text("＋ Add")
+                                        }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        videoClips.forEachIndexed { index, clip ->
+                                            Box(
+                                                modifier = Modifier.size(width = 56.dp, height = 76.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            ) {
+                                                VideoThumbnail(clip.uri, Modifier.fillMaxSize())
+                                                Text(
+                                                    "${index + 1}",
+                                                    modifier = Modifier.align(Alignment.TopStart)
+                                                        .padding(4.dp)
+                                                        .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(6.dp))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    videoClips.forEachIndexed { index, clip ->
+                                        ClipEditor(
+                                            clip = clip,
+                                            onChange = { updated ->
+                                                videoClips = videoClips.toMutableList().also { it[index] = updated }
+                                            },
+                                            onMove = { delta ->
+                                                val destination = index + delta
+                                                if (destination in videoClips.indices) {
+                                                    videoClips = videoClips.toMutableList().apply {
+                                                        add(destination, removeAt(index))
+                                                    }
+                                                }
+                                            },
+                                            onRemove = {
+                                                videoClips = videoClips.filterIndexed { clipIndex, _ -> clipIndex != index }
+                                            },
+                                            canMoveUp = index > 0,
+                                            canMoveDown = index < videoClips.lastIndex,
+                                        )
+                                    }
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text("Sound & look", fontWeight = FontWeight.Bold)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Soundtrack", fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                soundtrackUri?.lastPathSegment?.substringAfterLast('/')
+                                                    ?: "Original clip audio",
+                                                maxLines = 1,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                        }
+                                        TextButton(onClick = { pickSoundtrack.launch(arrayOf("audio/*")) }) {
+                                            Text(if (soundtrackUri == null) "Add sound" else "Change")
+                                        }
+                                        if (soundtrackUri != null) {
+                                            IconButton(onClick = { soundtrackUri = null }) {
+                                                Icon(BootstrapIcons.Close(), contentDescription = "Remove soundtrack")
+                                            }
+                                        }
+                                    }
+                                    Text("Filter", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        listOf("none", "mono", "negative").forEach { filter ->
+                                            FilterChip(
+                                                selected = selectedFilter == filter,
+                                                onClick = { selectedFilter = filter },
+                                                label = {
+                                                    Text(
+                                                        when (filter) {
+                                                            "mono" -> "Mono"
+                                                            "negative" -> "Negative"
+                                                            else -> "Original"
+                                                        },
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                showAudienceOptions = !showAudienceOptions
-                            }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            Text("◎", style = MaterialTheme.typography.titleLarge)
-                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text("Who can watch this video", fontWeight = FontWeight.Bold)
                                 Text(
-                                    if (audience == "public") "Everyone can view this post"
-                                    else "Followers can view this post",
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    if (audience == "public") "Visible to everyone on Topline"
-                                    else "Visible to people who follow you",
+                                    "Choose who can view and interact with your post.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                            }
-                            Text("›", style = MaterialTheme.typography.headlineSmall)
-                        }
-                        if (showAudienceOptions) {
-                            AudienceChoice(
-                                title = "Everyone",
-                                subtitle = "Anyone on Topline can view it.",
-                                selected = audience == "public",
-                            ) { audience = "public"; showAudienceOptions = false }
-                            AudienceChoice(
-                                title = "Followers",
-                                subtitle = "Only people who follow you can view it.",
-                                selected = audience == "followers",
-                            ) { audience = "followers"; showAudienceOptions = false }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                showMoreOptions = !showMoreOptions
-                            }.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("⚙", style = MaterialTheme.typography.titleLarge)
-                            Text("More options", modifier = Modifier.weight(1f).padding(start = 12.dp), fontWeight = FontWeight.SemiBold)
-                            Text("›", style = MaterialTheme.typography.headlineSmall)
-                        }
-                        if (showMoreOptions) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("Allow comments", fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "Viewers can comment on this post.",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = audience == "public",
+                                        onClick = { audience = "public" },
+                                        label = { Text("Everyone") },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    FilterChip(
+                                        selected = audience == "followers",
+                                        onClick = { audience = "followers" },
+                                        label = { Text("Followers") },
+                                        modifier = Modifier.weight(1f),
                                     )
                                 }
-                                Switch(checked = allowComments, onCheckedChange = { allowComments = it })
                             }
                         }
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            Text("↗", style = MaterialTheme.typography.titleLarge)
-                            Text("Share to", modifier = Modifier.weight(1f).padding(start = 12.dp), fontWeight = FontWeight.SemiBold)
-                            Text("Topline", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text("Interaction settings", fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Allow comments", fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            "Viewers can comment on this post.",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                    Switch(checked = allowComments, onCheckedChange = { allowComments = it })
+                                }
+                            }
                         }
+
                         if (!errorMessage.isNullOrBlank()) {
-                            Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                            Text(
+                                errorMessage,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                         Text(
-                            "Your video will upload when you tap Post. Keep Topline open until publishing finishes.",
+                            "Your video uploads when you tap Post. Keep Topline open until publishing finishes.",
+                            modifier = Modifier.padding(horizontal = 4.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        Spacer(Modifier.height(8.dp))
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         TextButton(
@@ -601,16 +735,23 @@ fun UploadScreen(
                                 onSubmit(text.trim(), mediaUri, coverUri, audience, allowComments, editPlan)
                             },
                             enabled = !isSubmitting && (text.isNotBlank() || mediaUri != null),
-                            modifier = Modifier.weight(1f).height(54.dp),
+                            modifier = Modifier.weight(1.7f).height(54.dp),
                             shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFE2C55)),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                         ) {
                             if (isSubmitting) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
                                 Spacer(Modifier.size(8.dp))
-                                Text("Uploading…")
+                                Text("Publishing…")
                             } else {
-                                Text("Post", fontWeight = FontWeight.Bold)
+                                Text("➤  Post now", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -680,6 +821,61 @@ private fun ClipEditor(
     }
 }
 
+@Composable
+private fun VideoThumbnail(uri: Uri, modifier: Modifier = Modifier) {
+    val context = LocalContext.current.applicationContext
+    val bitmap by produceState<Bitmap?>(initialValue = null, uri) {
+        value = withContext(Dispatchers.IO) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, uri)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                    retriever.getScaledFrameAtTime(
+                        0L,
+                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                        256,
+                        384,
+                    )
+                } else {
+                    retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?.let { frame ->
+                            val scale = minOf(256f / frame.width, 384f / frame.height)
+                            val scaled = Bitmap.createScaledBitmap(
+                                frame,
+                                (frame.width * scale).toInt().coerceAtLeast(1),
+                                (frame.height * scale).toInt().coerceAtLeast(1),
+                                true,
+                            )
+                            if (scaled !== frame) frame.recycle()
+                            scaled
+                        }
+                }
+            } catch (error: Exception) {
+                Log.w("UploadScreen", "Unable to generate a video cover thumbnail.", error)
+                null
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = "Video thumbnail",
+            modifier = modifier,
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Box(
+            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("VIDEO", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 private fun mediaDurationMs(context: Context, uri: Uri): Long {
     val retriever = MediaMetadataRetriever()
     return try {
@@ -716,25 +912,6 @@ private fun persistReadPermission(context: Context, uri: Uri) {
             "The selected file may not be available if you leave before publishing.",
             Toast.LENGTH_LONG,
         ).show()
-    }
-}
-
-@Composable
-private fun AudienceChoice(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    onSelect: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Column(Modifier.padding(start = 8.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        }
     }
 }
 

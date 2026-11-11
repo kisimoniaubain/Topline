@@ -162,6 +162,8 @@ const verifyGoogleIdToken = async (idToken) => {
   if (
     !allowedClientIds.includes(claims.aud) ||
     !["accounts.google.com", "https://accounts.google.com"].includes(claims.iss) ||
+    !Number.isFinite(Number(claims.exp)) ||
+    Number(claims.exp) <= Math.floor(Date.now() / 1000) ||
     claims.email_verified !== "true" ||
     !claims.sub ||
     !claims.email
@@ -325,31 +327,51 @@ router.post("/oauth/google/verify", async (req, res) => {
       federatedIdentities: { $elemMatch: identity },
     });
     if (!user) {
-      const emailOwner = await User.findOne({ email }).select("_id");
+      const emailOwner = await User.findOne({ email }).collation({ locale: "en", strength: 2 });
       if (emailOwner) {
-        await AuthChallenge.deleteOne({ _id: challenge._id });
-        return res.status(409).json({
-          success: false,
-          message: "An account already uses this email. Sign in with that account first before linking Google.",
-        });
+        try {
+          user = await User.findOneAndUpdate(
+            { _id: emailOwner._id },
+            { $addToSet: { federatedIdentities: identity } },
+            { new: true },
+          );
+        } catch (error) {
+          if (error.code !== 11000) throw error;
+          user = await User.findOne({
+            federatedIdentities: { $elemMatch: identity },
+          });
+          if (!user) {
+            console.warn("Google account linking conflict: identity is already linked to another account.");
+            await AuthChallenge.deleteOne({ _id: challenge._id });
+            return res.status(409).json({
+              success: false,
+              message: "This Google account is already linked to another Topline account.",
+            });
+          }
+        }
       }
 
-      const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
-      user = await User.create({
-        name: challenge.displayName,
-        username: await makeUsername(challenge.displayName, email),
-        email,
-        password: randomPassword,
-        dateOfBirth: null,
-        profilePicture: challenge.profilePicture,
-        federatedIdentities: [identity],
-      });
+      if (!user) {
+        const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+        user = await User.create({
+          name: challenge.displayName,
+          username: await makeUsername(challenge.displayName, email),
+          email,
+          password: randomPassword,
+          dateOfBirth: null,
+          profilePicture: challenge.profilePicture,
+          federatedIdentities: [identity],
+        });
+      }
     }
 
     await AuthChallenge.deleteOne({ _id: challenge._id });
     return res.json(createSession(user));
   } catch (error) {
-    console.error("Google email confirmation failed:", error.message);
+    console.error("Google email confirmation failed:", {
+      name: error.name || "Error",
+      code: error.code || "UNKNOWN",
+    });
     return res.status(500).json({ success: false, message: "Unable to confirm this Google sign-in right now." });
   }
 });
@@ -375,13 +397,6 @@ router.post("/oauth/:provider", async (req, res) => {
       },
     });
     if (!user && provider === "google") {
-      const emailOwner = await User.findOne({ email: profile.email }).select("_id");
-      if (emailOwner) {
-        return res.status(409).json({
-          success: false,
-          message: "An account already uses this email. Sign in with that account first before linking Google.",
-        });
-      }
       const delivery = await sendGoogleSignupCode(profile);
       return res.json({
         success: true,
@@ -414,7 +429,10 @@ router.post("/oauth/:provider", async (req, res) => {
     }
     return res.json(createSession(user));
   } catch (error) {
-    console.error(`${provider} sign-in failed:`, error.message);
+    console.error(`${provider} sign-in failed:`, {
+      name: error.name || "Error",
+      code: error.code || "UNKNOWN",
+    });
     if (error.message === "Email delivery is not configured.") {
       return res.status(503).json({
         success: false,

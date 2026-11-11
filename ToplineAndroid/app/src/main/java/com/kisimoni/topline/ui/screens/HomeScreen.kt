@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -43,8 +44,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -786,11 +789,77 @@ fun HomeScreen(
         val rootComments = visibleComments.filter { it.parentCommentId.isNullOrBlank() }
         val isCommentsLoading = !isSamplePost && commentsState.isLoading
         val visibleCommentsError = if (isSamplePost) null else commentsErrorMessage
+        val commentCount = if (isSamplePost) visibleComments.size else commentsState.commentsCount
+        var sortTopComments by remember(post.id) { mutableStateOf(true) }
+        val sortedRootComments = if (sortTopComments) {
+            rootComments.sortedWith(
+                compareByDescending<CommentItem> { it.likesCount }
+                    .thenByDescending { it.createdAt.orEmpty() },
+            )
+        } else {
+            rootComments.sortedByDescending { it.createdAt.orEmpty() }
+        }
+        val closeComments = {
+            selectedPost = null
+            commentImage = null
+            replyTarget = null
+        }
+        val submitComment: () -> Unit = {
+            val token = authViewModel.tokenOrNull()
+            if (token.isNullOrBlank()) {
+                Toast.makeText(context, "Sign in to join the conversation.", Toast.LENGTH_SHORT).show()
+            } else {
+                val target = replyTarget
+                if (isSamplePost) {
+                    val currentUser = authState.currentUser
+                    val comment = CommentItem(
+                        id = "local-${System.nanoTime()}",
+                        postId = post.id,
+                        author = CommentAuthor(
+                            id = currentUser?.id.orEmpty(),
+                            name = currentUser?.name.orEmpty(),
+                            username = currentUser?.username.orEmpty(),
+                            profilePicture = currentUser?.profilePicture,
+                        ),
+                        text = commentDraft,
+                        image = commentImage?.toString(),
+                        parentCommentId = target?.id,
+                    )
+                    localComments[post.id] = visibleComments + comment
+                    commentDraft = ""
+                    commentImage = null
+                    replyTarget = null
+                } else {
+                    postViewModel.addComment(
+                        postId = post.id,
+                        token = token,
+                        text = commentDraft,
+                        imageUri = commentImage,
+                        parentCommentId = target?.id,
+                    ) {
+                        commentDraft = ""
+                        commentImage = null
+                        replyTarget = null
+                        selectedPost = post.copy(commentsCount = it)
+                    }
+                }
+            }
+        }
         ModalBottomSheet(
-            onDismissRequest = {
-                selectedPost = null
-                commentImage = null
-                replyTarget = null
+            onDismissRequest = closeComments,
+            containerColor = Color(0xFF1B1C1E),
+            contentColor = Color.White,
+            scrimColor = Color.Black.copy(alpha = 0.68f),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                topStart = 28.dp,
+                topEnd = 28.dp,
+            ),
+            dragHandle = {
+                Box(
+                    Modifier.padding(top = 10.dp, bottom = 8.dp)
+                        .width(40.dp).height(4.dp)
+                        .clip(CircleShape).background(Color.White.copy(alpha = 0.3f)),
+                )
             },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
@@ -798,197 +867,330 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.9f)
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .background(Color(0xFF1B1C1E)),
             ) {
-                Text(
-                    text = "Comments (${if (isSamplePost) visibleComments.size else commentsState.commentsCount})",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-
-                if (isCommentsLoading) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFFF57F17))
-                    }
-                } else if (!visibleCommentsError.isNullOrBlank()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        text = visibleCommentsError,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.error,
+                        formatEngagementCount(commentCount),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
                     )
-                } else if (visibleComments.isEmpty()) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("No comments yet. Start the conversation.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    Text(
+                        "  COMMENTS",
+                        color = Color.White.copy(alpha = 0.62f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Row(
+                        Modifier.clip(CircleShape).background(Color(0xFF292A2C)).padding(3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        items(rootComments, key = { it.id }) { comment ->
-                            val replies = visibleComments.filter { it.parentCommentId == comment.id }
-                            CommentRow(
-                                comment = comment,
-                                isLiked = if (isSamplePost) {
-                                    sampleCommentLikes[comment.id] == true
-                                } else {
-                                    comment.likedByCurrentUser
-                                },
-                                currentUserId = authState.currentUser?.id.orEmpty(),
-                                onLike = {
-                                    if (isSamplePost) {
-                                        sampleCommentLikes[comment.id] = sampleCommentLikes[comment.id] != true
-                                    } else {
-                                        authViewModel.tokenOrNull()?.let { token ->
-                                            postViewModel.toggleCommentLike(comment.id, token)
-                                        }
-                                    }
-                                },
-                                onReply = {
-                                    replyTarget = comment
-                                },
-                                onDelete = {
-                                    if (isSamplePost) {
-                                        val idsToRemove = setOf(comment.id) + replies.map { it.id }
-                                        localComments[post.id] = visibleComments.filterNot { it.id in idsToRemove }
-                                    } else {
-                                        authViewModel.tokenOrNull()?.let { token ->
-                                            postViewModel.deleteComment(post.id, comment.id, token)
-                                        }
-                                    }
-                                },
+                        TextButton(
+                            onClick = { sortTopComments = true },
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (sortTopComments) Color(0xFFFF7A00) else Color.Transparent),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 4.dp,
+                            ),
+                        ) {
+                            Text(
+                                "Top",
+                                color = if (sortTopComments) Color.White else Color.White.copy(alpha = 0.62f),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
                             )
-                            replies.forEach { reply ->
+                        }
+                        TextButton(
+                            onClick = { sortTopComments = false },
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (!sortTopComments) Color(0xFFFF7A00) else Color.Transparent),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 4.dp,
+                            ),
+                        ) {
+                            Text(
+                                "Newest",
+                                color = if (!sortTopComments) Color.White else Color.White.copy(alpha = 0.62f),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    IconButton(onClick = closeComments) {
+                        Icon(
+                            BootstrapIcons.Close(),
+                            contentDescription = "Close comments",
+                            tint = Color.White.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF242527)),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 16.dp,
+                        vertical = 8.dp,
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    item {
+                        Text(
+                            "React",
+                            color = Color.White.copy(alpha = 0.56f),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    items(listOf("❤️", "🔥", "👏", "😂", "😮", "💯")) { emoji ->
+                        TextButton(
+                            onClick = { commentDraft = (commentDraft + emoji).take(1000) },
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF343537)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        ) {
+                            Text(emoji, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 16.dp,
+                        vertical = 14.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    if (isCommentsLoading && visibleComments.isEmpty()) {
+                        item {
+                            Box(
+                                Modifier.fillMaxWidth().height(180.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(color = Color(0xFFFF7A00))
+                            }
+                        }
+                    } else if (!visibleCommentsError.isNullOrBlank() && visibleComments.isEmpty()) {
+                        item {
+                            Text(
+                                visibleCommentsError.orEmpty(),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+                    } else if (visibleComments.isEmpty()) {
+                        item {
+                            Box(
+                                Modifier.fillMaxWidth().height(180.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "No comments yet. Start the conversation.",
+                                    color = Color.White.copy(alpha = 0.62f),
+                                )
+                            }
+                        }
+                    } else {
+                        if (!visibleCommentsError.isNullOrBlank()) {
+                            item {
+                                Text(
+                                    visibleCommentsError.orEmpty(),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        items(sortedRootComments, key = { it.id }) { comment ->
+                            val replies = visibleComments.filter { it.parentCommentId == comment.id }
+                            Column(
+                                Modifier.fillMaxWidth()
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (comment.author.id.isNotBlank() && comment.author.id == post.author.id) {
+                                            Color(0xFF292A2C)
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                    )
+                                    .padding(if (comment.author.id.isNotBlank() && comment.author.id == post.author.id) 10.dp else 0.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
                                 CommentRow(
-                                    comment = reply,
-                                    isReply = true,
+                                    comment = comment,
+                                    isCreatorComment = comment.author.id.isNotBlank() &&
+                                        comment.author.id == post.author.id,
                                     isLiked = if (isSamplePost) {
-                                        sampleCommentLikes[reply.id] == true
+                                        sampleCommentLikes[comment.id] == true
                                     } else {
-                                        reply.likedByCurrentUser
+                                        comment.likedByCurrentUser
                                     },
                                     currentUserId = authState.currentUser?.id.orEmpty(),
                                     onLike = {
                                         if (isSamplePost) {
-                                            sampleCommentLikes[reply.id] = sampleCommentLikes[reply.id] != true
+                                            sampleCommentLikes[comment.id] = sampleCommentLikes[comment.id] != true
                                         } else {
                                             authViewModel.tokenOrNull()?.let { token ->
-                                                postViewModel.toggleCommentLike(reply.id, token)
+                                                postViewModel.toggleCommentLike(comment.id, token)
                                             }
                                         }
                                     },
-                                    onReply = {
-                                        replyTarget = comment
-                                    },
+                                    onReply = { replyTarget = comment },
                                     onDelete = {
                                         if (isSamplePost) {
-                                            localComments[post.id] = visibleComments.filterNot { it.id == reply.id }
+                                            val idsToRemove = setOf(comment.id) + replies.map { it.id }
+                                            localComments[post.id] = visibleComments.filterNot { it.id in idsToRemove }
                                         } else {
                                             authViewModel.tokenOrNull()?.let { token ->
-                                                postViewModel.deleteComment(post.id, reply.id, token)
+                                                postViewModel.deleteComment(post.id, comment.id, token)
                                             }
                                         }
                                     },
                                 )
+                                replies.forEach { reply ->
+                                    CommentRow(
+                                        comment = reply,
+                                        isReply = true,
+                                        isLiked = if (isSamplePost) {
+                                            sampleCommentLikes[reply.id] == true
+                                        } else {
+                                            reply.likedByCurrentUser
+                                        },
+                                        currentUserId = authState.currentUser?.id.orEmpty(),
+                                        onLike = {
+                                            if (isSamplePost) {
+                                                sampleCommentLikes[reply.id] = sampleCommentLikes[reply.id] != true
+                                            } else {
+                                                authViewModel.tokenOrNull()?.let { token ->
+                                                    postViewModel.toggleCommentLike(reply.id, token)
+                                                }
+                                            }
+                                        },
+                                        onReply = { replyTarget = comment },
+                                        onDelete = {
+                                            if (isSamplePost) {
+                                                localComments[post.id] = visibleComments.filterNot { it.id == reply.id }
+                                            } else {
+                                                authViewModel.tokenOrNull()?.let { token ->
+                                                    postViewModel.deleteComment(post.id, reply.id, token)
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                replyTarget?.let { replyingTo ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Replying to @${replyingTo.author.username}",
-                            modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
+                if (commentImage != null) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AsyncImage(
+                            model = commentImage,
+                            contentDescription = "Image attached to comment",
+                            modifier = Modifier.size(48.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop,
                         )
-                        TextButton(onClick = { replyTarget = null }) { Text("Cancel", color = Color(0xFFF57F17)) }
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("❤️", "😂", "😍", "🔥", "👏", "🥰", "😭", "🙏").forEach { emoji ->
-                        TextButton(
-                            onClick = { commentDraft = (commentDraft + emoji).take(1000) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                        ) {
-                            Text(emoji, style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = { commentImage = null }) {
+                            Text("Remove image", color = Color(0xFFFFB68B))
                         }
                     }
                 }
-                commentImage?.let { imageUri ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = imageUri,
-                            contentDescription = "Image attached to comment",
-                            modifier = Modifier.size(68.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop,
+
+                replyTarget?.let { replyingTo ->
+                    Row(
+                        Modifier.fillMaxWidth().background(Color(0xFF242527)).padding(start = 16.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Replying to @${replyingTo.author.username.ifBlank { replyingTo.author.name }}",
+                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                            color = Color.White.copy(alpha = 0.68f),
+                            style = MaterialTheme.typography.bodySmall,
                         )
-                        TextButton(onClick = { commentImage = null }) { Text("Remove", color = Color(0xFFF57F17)) }
+                        IconButton(onClick = { replyTarget = null }) {
+                            Icon(
+                                BootstrapIcons.Close(),
+                                contentDescription = "Cancel reply",
+                                tint = Color.White.copy(alpha = 0.68f),
+                            )
+                        }
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { pickCommentImage.launch("image/*") }) {
+
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(Color(0xFF111214))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    IconButton(onClick = { pickCommentImage.launch("image/*") }, modifier = Modifier.size(40.dp)) {
                         Icon(
                             BootstrapIcons.AddPhoto(),
                             contentDescription = "Attach image to comment",
-                            tint = Color(0xFFF57F17),
+                            tint = Color.White.copy(alpha = 0.82f),
                         )
                     }
                     OutlinedTextField(
                         value = commentDraft,
                         onValueChange = { commentDraft = it.take(1000) },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text(if (replyTarget == null) "Add a comment..." else "Write a reply...") },
-                        maxLines = 3,
+                        placeholder = {
+                            Text(
+                                if (replyTarget == null) "Add a comment…" else "Write a reply…",
+                                color = Color.White.copy(alpha = 0.48f),
+                            )
+                        },
+                        singleLine = true,
+                        shape = CircleShape,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color(0xFF292A2C),
+                            unfocusedContainerColor = Color(0xFF292A2C),
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            cursorColor = Color(0xFFFF7A00),
+                        ),
                     )
                     IconButton(
-                        onClick = {
-                            val token = authViewModel.tokenOrNull() ?: return@IconButton
-                            val target = replyTarget
-                            if (isSamplePost) {
-                                val currentUser = authState.currentUser
-                                val comment = CommentItem(
-                                    id = "local-${System.nanoTime()}",
-                                    postId = post.id,
-                                    author = CommentAuthor(
-                                        id = currentUser?.id.orEmpty(),
-                                        name = currentUser?.name.orEmpty(),
-                                        username = currentUser?.username.orEmpty(),
-                                        profilePicture = currentUser?.profilePicture,
-                                    ),
-                                    text = commentDraft,
-                                    image = commentImage?.toString(),
-                                    parentCommentId = target?.id,
-                                )
-                                localComments[post.id] = visibleComments + comment
-                                commentDraft = ""
-                                commentImage = null
-                                replyTarget = null
-                            } else {
-                                postViewModel.addComment(
-                                    postId = post.id,
-                                    token = token,
-                                    text = commentDraft,
-                                    imageUri = commentImage,
-                                    parentCommentId = target?.id,
-                                ) {
-                                    commentDraft = ""
-                                    commentImage = null
-                                    replyTarget = null
-                                    selectedPost = post.copy(commentsCount = it)
-                                }
-                            }
-                        },
+                        onClick = submitComment,
                         enabled = !commentsState.isSubmitting && (commentDraft.isNotBlank() || commentImage != null),
+                        modifier = Modifier.size(42.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (!commentsState.isSubmitting &&
+                                    (commentDraft.isNotBlank() || commentImage != null)
+                                ) {
+                                    Color(0xFFFF7A00)
+                                } else {
+                                    Color(0xFF343537)
+                                },
+                            ),
                     ) {
                         if (commentsState.isSubmitting) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFF57F17))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
                         } else {
-                            Icon(BootstrapIcons.Message(), contentDescription = "Post comment", tint = Color(0xFFF57F17))
+                            Icon(BootstrapIcons.Send(), contentDescription = "Post comment", tint = Color.White)
                         }
                     }
                 }
@@ -1002,6 +1204,7 @@ private fun CommentRow(
     comment: CommentItem,
     currentUserId: String,
     isLiked: Boolean,
+    isCreatorComment: Boolean = false,
     isReply: Boolean = false,
     onLike: () -> Unit,
     onReply: () -> Unit,
@@ -1011,13 +1214,13 @@ private fun CommentRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = if (isReply) 40.dp else 0.dp),
+            .padding(start = if (isReply) 36.dp else 0.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(
-            modifier = Modifier.size(if (isReply) 30.dp else 36.dp)
+            modifier = Modifier.size(if (isReply) 30.dp else 38.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFF57F17)),
+                .background(Color(0xFF343537)),
             contentAlignment = Alignment.Center,
         ) {
             if (!comment.author.profilePicture.isNullOrBlank()) {
@@ -1028,52 +1231,86 @@ private fun CommentRow(
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                Text(authorName.firstOrNull()?.uppercase() ?: "U", color = Color.White)
+                Text(
+                    authorName.firstOrNull()?.uppercase() ?: "U",
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(authorName, fontWeight = FontWeight.SemiBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    comment.author.username.takeIf { it.isNotBlank() }?.let { "@$it" } ?: authorName,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                if (isCreatorComment) {
+                    Text(
+                        "Creator",
+                        modifier = Modifier.clip(CircleShape)
+                            .background(Color(0xFFFF7A00).copy(alpha = 0.18f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = Color(0xFFFFB68B),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
             if (comment.text.isNotBlank()) {
-                Text(comment.text, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    comment.text,
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = Color(0xFFE3E2E5),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             if (!comment.image.isNullOrBlank()) {
                 AsyncImage(
                     model = comment.image,
                     contentDescription = "Comment image",
-                    modifier = Modifier.padding(top = 6.dp)
-                        .fillMaxWidth(0.72f)
-                        .height(170.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
+                    modifier = Modifier.padding(top = 8.dp)
+                        .fillMaxWidth(0.78f)
+                        .height(180.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
                     contentScale = ContentScale.Crop,
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     comment.createdAt.orEmpty().take(10),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.White.copy(alpha = 0.5f),
                     style = MaterialTheme.typography.labelSmall,
                 )
                 TextButton(onClick = onReply) {
-                    Text("Reply", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Reply", color = Color.White.copy(alpha = 0.7f))
                 }
                 if (comment.author.id.isNotBlank() && comment.author.id == currentUserId) {
                     TextButton(onClick = onDelete) {
-                        Text("Delete", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Delete", color = Color.White.copy(alpha = 0.7f))
                     }
                 }
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            IconButton(onClick = onLike, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onLike, modifier = Modifier.size(32.dp)) {
                 Icon(
                     if (isLiked) BootstrapIcons.HeartFill() else BootstrapIcons.HeartOutline(),
                     contentDescription = if (isLiked) "Unlike comment" else "Like comment",
-                    tint = if (isLiked) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(19.dp),
+                    tint = if (isLiked) Color(0xFFFF5400) else Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.size(18.dp),
                 )
             }
             if (comment.likesCount > 0) {
-                Text(comment.likesCount.toString(), style = MaterialTheme.typography.labelSmall)
+                Text(
+                    formatEngagementCount(comment.likesCount),
+                    color = if (isLiked) Color(0xFFFF7A00) else Color.White.copy(alpha = 0.55f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isLiked) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -1366,7 +1603,7 @@ private fun formatEngagementCount(count: Int): String {
 @Composable
 private fun TikTokShareIcon() {
     Icon(
-        BootstrapIcons.ArrowRightTurn(),
+        BootstrapIcons.Share(),
         contentDescription = null,
         modifier = Modifier.size(28.dp),
         tint = Color.White,
@@ -1386,7 +1623,7 @@ private fun TikTokCommentIcon(enabled: Boolean) {
 @Composable
 private fun TikTokHeartIcon(isLiked: Boolean) {
     Icon(
-        if (isLiked) BootstrapIcons.HeartFill() else BootstrapIcons.HeartOutline(),
+        BootstrapIcons.HeartFill(),
         contentDescription = null,
         modifier = Modifier.size(32.dp),
         tint = if (isLiked) Color(0xFFFF2D55) else Color.White,
@@ -1396,7 +1633,7 @@ private fun TikTokHeartIcon(isLiked: Boolean) {
 @Composable
 private fun TikTokSaveIcon(isSaved: Boolean) {
     Icon(
-        if (isSaved) BootstrapIcons.BookmarkFill() else BootstrapIcons.Bookmark(),
+        BootstrapIcons.BookmarkFill(),
         contentDescription = null,
         modifier = Modifier.size(30.dp),
         tint = if (isSaved) Color(0xFFFFD54F) else Color.White,

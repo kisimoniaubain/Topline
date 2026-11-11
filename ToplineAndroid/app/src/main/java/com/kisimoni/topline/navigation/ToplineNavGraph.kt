@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -306,6 +307,7 @@ fun ToplineNavGraph(
                                 modifier = Modifier
                                     .size(width = 36.dp, height = 40.dp)
                                     .align(Alignment.CenterStart)
+                                    .offset(y = (-4).dp)
                                     .background(
                                         Color(0xFFFFB77D),
                                         RoundedCornerShape(9.dp),
@@ -315,6 +317,7 @@ fun ToplineNavGraph(
                                 modifier = Modifier
                                     .size(width = 36.dp, height = 40.dp)
                                     .align(Alignment.CenterEnd)
+                                    .offset(y = (-4).dp)
                                     .background(
                                         Color(0xFFFF5400),
                                         RoundedCornerShape(9.dp),
@@ -323,6 +326,7 @@ fun ToplineNavGraph(
                             Box(
                                 modifier = Modifier
                                     .size(width = 48.dp, height = 40.dp)
+                                    .offset(y = (-4).dp)
                                     .background(
                                         Color.White,
                                         RoundedCornerShape(9.dp),

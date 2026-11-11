@@ -27,6 +27,11 @@ import retrofit2.http.PUT
 import retrofit2.http.PATCH
 import java.util.concurrent.TimeUnit
 
+internal fun bearerAuthorization(token: String): String {
+    val value = token.trim()
+    return if (value.startsWith("Bearer ", ignoreCase = true)) value else "Bearer".plus(" ").plus(value)
+}
+
 interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body request: AuthRequest): AuthResponse
@@ -319,14 +324,15 @@ interface ApiService {
                 userPreferences.authTokenFlow.firstOrNull()
             }
 
-            val request = if (!token.isNullOrBlank()) {
-                chain.request().newBuilder()
-                    .header("Authorization", "Bearer $token")
-                    .build()
+            val originalRequest = chain.request()
+            val existingAuthorization = originalRequest.header("Authorization")
+            val authorization = token?.takeIf(String::isNotBlank)?.let(::bearerAuthorization)
+                ?: existingAuthorization?.takeIf(String::isNotBlank)?.let(::bearerAuthorization)
+            val request = if (authorization != null) {
+                originalRequest.newBuilder().header("Authorization", authorization).build()
             } else {
-                chain.request()
+                originalRequest
             }
-
             return chain.proceed(request)
         }
     }

@@ -3,6 +3,7 @@ package com.kisimoni.topline.data.repository
 import android.content.Context
 import android.net.Uri
 import com.kisimoni.topline.data.api.ApiService
+import com.kisimoni.topline.data.api.bearerAuthorization
 import com.kisimoni.topline.data.api.AuthRequest
 import com.kisimoni.topline.data.api.AuthResponse
 import com.kisimoni.topline.data.api.SimpleResponse
@@ -65,7 +66,7 @@ class AuthRepository(
     }
 
     suspend fun approveQrLogin(token: String, qrToken: String): SimpleResponse = withContext(Dispatchers.IO) {
-        apiService.approveQrLogin("Bearer $token", QrAuthRequest(qrToken))
+        apiService.approveQrLogin(bearerAuthorization(token), QrAuthRequest(qrToken))
     }
 
     suspend fun register(request: RegisterRequest): AuthResponse = withContext(Dispatchers.IO) {
@@ -73,15 +74,15 @@ class AuthRepository(
     }
 
     suspend fun getCurrentUser(token: String): UserResponse = withContext(Dispatchers.IO) {
-        apiService.getCurrentUser("Bearer $token")
+        apiService.getCurrentUser(bearerAuthorization(token))
     }
 
     suspend fun updateCurrentUser(token: String, request: UpdateProfileRequest): UserResponse = withContext(Dispatchers.IO) {
-        apiService.updateCurrentUser("Bearer $token", request)
+        apiService.updateCurrentUser(bearerAuthorization(token), request)
     }
 
     suspend fun updatePrivacy(token: String, privateAccount: Boolean): UserResponse = withContext(Dispatchers.IO) {
-        apiService.updatePrivacy("Bearer $token", UpdatePrivacyRequest(privateAccount))
+        apiService.updatePrivacy(bearerAuthorization(token), UpdatePrivacyRequest(privateAccount))
     }
 
     suspend fun updateCurrentUserAvatar(token: String, uri: Uri): UserResponse = withContext(Dispatchers.IO) {
@@ -100,7 +101,7 @@ class AuthRepository(
                 filename = tempFile.name,
                 body = tempFile.asRequestBody(mimeType.toMediaType()),
             )
-            apiService.updateCurrentUserAvatar("Bearer $token", part)
+            apiService.updateCurrentUserAvatar(bearerAuthorization(token), part)
         } finally {
             tempFile.delete()
         }
@@ -112,6 +113,6 @@ class AuthRepository(
     }
 
     suspend fun deleteCurrentUser(token: String): SimpleResponse = withContext(Dispatchers.IO) {
-        apiService.deleteCurrentUser("Bearer $token")
+        apiService.deleteCurrentUser(bearerAuthorization(token))
     }
 }

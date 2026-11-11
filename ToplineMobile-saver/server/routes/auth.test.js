@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import AuthChallenge from "../models/AuthChallenge.js";
 import User from "../models/User.js";
 import authRoutes from "./auth.js";
 
-test("first Google sign-in verifies email before creating an account", async (t) => {
+test("Google sign-in verifies email, creates new accounts, and links existing accounts", async (t) => {
   const originalEnvironment = {
     JWT_SECRET: process.env.JWT_SECRET,
     AUTH_CHALLENGE_SECRET: process.env.AUTH_CHALLENGE_SECRET,
@@ -54,11 +56,25 @@ test("first Google sign-in verifies email before creating an account", async (t)
         ),
       ) || null;
     } else if (query.email) {
-      user = users.find((item) => item.email === query.email) || null;
+      user = users.find((item) => item.email.toLowerCase() === query.email.toLowerCase()) || null;
+    } else if (query.$or) {
+      user = users.find((item) => query.$or.some((condition) =>
+        Object.entries(condition).some(([field, value]) =>
+          String(item[field] || "").toLowerCase() === String(value).toLowerCase(),
+        ),
+      )) || null;
     }
     const result = Promise.resolve(user);
     result.select = () => result;
+    result.collation = () => result;
     return result;
+  };
+  User.findOneAndUpdate = async ({ _id }, update) => {
+    const user = users.find((item) => item._id === _id) || null;
+    if (user && update.$addToSet?.federatedIdentities) {
+      user.federatedIdentities.push(update.$addToSet.federatedIdentities);
+    }
+    return user;
   };
   User.exists = async () => false;
   User.create = async (data) => {
@@ -104,13 +120,17 @@ test("first Google sign-in verifies email before creating an account", async (t)
   };
   globalThis.fetch = async (input, options) => {
     if (String(input).startsWith("https://oauth2.googleapis.com/tokeninfo")) {
+      const token = new URL(String(input)).searchParams.get("id_token");
+      const existingAccount = token === "existing-google-id-token";
+      const expiredToken = token === "expired-google-id-token";
       return new Response(JSON.stringify({
         aud: "test-google-client",
         iss: "https://accounts.google.com",
+        exp: String(Math.floor(Date.now() / 1000) + (expiredToken ? -3600 : 3600)),
         email_verified: "true",
-        sub: identity.subject,
-        email,
-        name: "New Google User",
+        sub: existingAccount ? "existing-google-subject" : identity.subject,
+        email: existingAccount ? "existing-account@example.test" : email,
+        name: existingAccount ? "Google Profile Name" : "New Google User",
         picture: "https://example.test/avatar.png",
       }), { status: 200 });
     }
@@ -134,7 +154,8 @@ test("first Google sign-in verifies email before creating an account", async (t)
     }
   });
 
-  const url = `http://127.0.0.1:${server.address().port}/api/auth/oauth/google`;
+  const authUrl = `http://127.0.0.1:${server.address().port}/api/auth`;
+  const url = `${authUrl}/oauth/google`;
   const post = (path, body) => originalFetch(`${url}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -169,6 +190,7 @@ test("first Google sign-in verifies email before creating an account", async (t)
   const confirmed = await response.json();
   assert.equal(confirmed.success, true);
   assert.ok(confirmed.token);
+  assert.equal(jwt.verify(confirmed.token, process.env.JWT_SECRET).userId, users[0]._id);
   assert.equal(users.length, 1);
   assert.equal(users[0].email, email);
 
@@ -178,4 +200,68 @@ test("first Google sign-in verifies email before creating an account", async (t)
   assert.equal(returning.verificationRequired, undefined);
   assert.ok(returning.token);
   assert.equal(sentEmails.length, 1);
+
+  const existingUser = {
+    _id: "existing-user",
+    email: "Existing-Account@Example.Test",
+    name: "Existing Topline Profile",
+    username: "existing-profile",
+    password: await bcrypt.hash("correct-password", 4),
+    bio: "Keep my existing profile",
+    profilePicture: "https://example.test/existing-profile.png",
+    federatedIdentities: [],
+  };
+  users.push(existingUser);
+  response = await post("", { credential: "existing-google-id-token" });
+  assert.equal(response.status, 200);
+  const existingPending = await response.json();
+  assert.equal(existingPending.verificationRequired, true);
+  assert.equal(existingPending.email, "existing-account@example.test");
+  assert.equal(users.length, 2);
+  assert.equal(sentEmails.length, 2);
+
+  const existingCode = sentEmails[1].text.match(/confirmation code is (\d{6})/i)?.[1];
+  assert.ok(existingCode);
+  response = await post("/verify", {
+    email: existingPending.email,
+    code: existingCode,
+  });
+  assert.equal(response.status, 200);
+  const linked = await response.json();
+  assert.equal(linked.user.id, existingUser._id);
+  assert.ok(linked.token);
+  assert.equal(jwt.verify(linked.token, process.env.JWT_SECRET).userId, existingUser._id);
+  assert.equal(users.length, 2);
+  assert.equal(existingUser.name, "Existing Topline Profile");
+  assert.equal(existingUser.username, "existing-profile");
+  assert.equal(existingUser.bio, "Keep my existing profile");
+  assert.equal(existingUser.profilePicture, "https://example.test/existing-profile.png");
+  assert.deepEqual(existingUser.federatedIdentities, [{
+    provider: "google",
+    subject: "existing-google-subject",
+  }]);
+
+  response = await post("", { credential: "existing-google-id-token" });
+  assert.equal(response.status, 200);
+  const linkedReturning = await response.json();
+  assert.equal(linkedReturning.user.id, existingUser._id);
+  assert.equal(linkedReturning.verificationRequired, undefined);
+  assert.equal(sentEmails.length, 2);
+
+  response = await originalFetch(`${authUrl}/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+    identifier: existingUser.email.toUpperCase(),
+    password: "correct-password",
+    }),
+  });
+  assert.equal(response.status, 200);
+  const passwordLogin = await response.json();
+  assert.equal(passwordLogin.user.id, existingUser._id);
+  assert.equal(jwt.verify(passwordLogin.token, process.env.JWT_SECRET).userId, existingUser._id);
+
+  response = await post("", { credential: "expired-google-id-token" });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).message, "Google sign-in token is invalid or not verified.");
 });
