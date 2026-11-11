@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Like from "../models/Like.js";
 import Notification from "../models/Notification.js";
 import Post from "../models/Post.js";
+import { canViewPost } from "../utils/postAccess.js";
 import { createNotification } from "../utils/createNotification.js";
 
 const router = express.Router();
@@ -44,20 +45,25 @@ router.get("/:postId", async (req, res) => {
       return res.status(400).json({ message: "Invalid post ID." });
     }
 
-    const post = await Post.findById(postId).select("_id");
+    const post = await Post.findById(postId).select("_id author");
     if (!post) {
       return res.status(404).json({ message: "Post not found." });
     }
 
     const token = req.headers.authorization?.split(" ")[1];
     let likedByCurrentUser = false;
+    let viewerId = null;
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        viewerId = decoded.userId;
         likedByCurrentUser = !!(await Like.exists({ post: postId, user: decoded.userId }));
       } catch {
-        likedByCurrentUser = false;
+        viewerId = null;
       }
+    }
+    if (!(await canViewPost(post, viewerId))) {
+      return res.status(404).json({ message: "Post not found." });
     }
 
     const likesCount = await Like.countDocuments({ post: postId });
@@ -87,7 +93,6 @@ router.post("/:postId", async (req, res) => {
     if (!post) {
       return res.status(404).json({ message: "Post not found." });
     }
-
     const existingLike = await Like.findOne({ user: userId, post: postId });
     if (existingLike) {
       await existingLike.deleteOne();
@@ -108,6 +113,10 @@ router.post("/:postId", async (req, res) => {
         likesCount,
         message: "Post like removed.",
       });
+    }
+
+    if (!(await canViewPost(post, userId))) {
+      return res.status(404).json({ message: "Post not found." });
     }
 
     await Like.create({ user: userId, post: postId });

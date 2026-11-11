@@ -36,6 +36,9 @@ class UserPreferences(context: Context) {
         context.getSharedPreferences(PREFS_FILE_NAME, Context.MODE_PRIVATE)
     }
 
+    @Volatile
+    private var inMemoryAuthToken: String? = null
+
     private val _authTokenFlow = MutableStateFlow(getToken())
     val authTokenFlow: StateFlow<String?> = _authTokenFlow.asStateFlow()
     private val _pushTokenFlow = MutableStateFlow(getPushToken())
@@ -53,17 +56,25 @@ class UserPreferences(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
 
-    fun getToken(): String? = prefs.getString(TOKEN_KEY, null)
+    fun getToken(): String? = inMemoryAuthToken ?: prefs.getString(TOKEN_KEY, null)
 
-    fun saveAuthToken(token: String) {
-        prefs.edit().putString(TOKEN_KEY, token).apply()
+    fun saveAuthToken(token: String, remember: Boolean = true) {
+        inMemoryAuthToken = token
+        if (remember) {
+            prefs.edit().putString(TOKEN_KEY, token).apply()
+        } else {
+            prefs.edit().remove(TOKEN_KEY).apply()
+        }
+        _authTokenFlow.value = token
     }
 
     fun clearSession() {
+        inMemoryAuthToken = null
         prefs.edit()
             .remove(TOKEN_KEY)
             .remove(CURRENT_USER_KEY)
             .apply()
+        _authTokenFlow.value = null
     }
 
     fun getPushToken(): String? = prefs.getString(PUSH_TOKEN_KEY, null)

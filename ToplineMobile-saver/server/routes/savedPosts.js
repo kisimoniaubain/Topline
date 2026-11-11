@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Post from "../models/Post.js";
 import SavedPost from "../models/SavedPost.js";
 import SavedCollection from "../models/SavedCollection.js";
+import { canViewPost } from "../utils/postAccess.js";
 
 const router = express.Router();
 
@@ -75,9 +76,14 @@ router.get("/collections/:collectionId", async (req, res) => {
         populate: { path: "author", select: "name username profilePicture" },
       })
       .lean();
+    const posts = saved.map(({ post }) => post).filter(Boolean);
+    const visiblePosts = [];
+    for (const post of posts) {
+      if (await canViewPost(post, userId)) visiblePosts.push(post);
+    }
     return res.json({
       collection: { id: String(collection._id), name: collection.name },
-      posts: saved.map(({ post }) => post).filter(Boolean),
+      posts: visiblePosts,
     });
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -187,7 +193,10 @@ router.get("/", async (req, res) => {
         populate: { path: "author", select: "name username profilePicture" },
       })
       .lean();
-    const posts = saved.map(({ post }) => post).filter(Boolean);
+    const posts = [];
+    for (const { post } of saved) {
+      if (post && await canViewPost(post, userId)) posts.push(post);
+    }
     return res.json({ posts });
   } catch (error) {
     if (!error.status) {
@@ -206,10 +215,10 @@ router.post("/:postId", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(postId)) {
       return res.status(400).json({ message: "Invalid post ID." });
     }
-    if (!(await Post.exists({ _id: postId }))) {
+    const post = await Post.findById(postId).select("_id author");
+    if (!post) {
       return res.status(404).json({ message: "Post not found." });
     }
-
     const existing = await SavedPost.findOneAndDelete({ user: userId, post: postId });
     if (existing) {
       const savesCount = await SavedPost.countDocuments({ post: postId });
@@ -219,6 +228,10 @@ router.post("/:postId", async (req, res) => {
         savesCount,
         message: "Post removed from your saved posts.",
       });
+    }
+
+    if (!(await canViewPost(post, userId))) {
+      return res.status(404).json({ message: "Post not found." });
     }
 
     try {

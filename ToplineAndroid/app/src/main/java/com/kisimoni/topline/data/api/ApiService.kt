@@ -31,6 +31,33 @@ interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body request: AuthRequest): AuthResponse
 
+    @POST("auth/password/reset/request")
+    suspend fun requestPasswordReset(@Body request: PasswordResetRequest): SimpleResponse
+
+    @POST("auth/password/reset/confirm")
+    suspend fun confirmPasswordReset(@Body request: PasswordResetConfirmRequest): SimpleResponse
+
+    @POST("auth/oauth/google")
+    suspend fun loginWithGoogle(@Body request: ProviderAuthRequest): AuthResponse
+
+    @POST("auth/oauth/google/verify")
+    suspend fun confirmGoogleSignup(@Body request: GoogleSignupVerificationRequest): AuthResponse
+
+    @POST("auth/oauth/facebook")
+    suspend fun loginWithFacebook(@Body request: ProviderAuthRequest): AuthResponse
+
+    @POST("auth/qr/start")
+    suspend fun startQrLogin(): QrAuthStartResponse
+
+    @POST("auth/qr/poll")
+    suspend fun pollQrLogin(@Body request: QrAuthRequest): QrAuthPollResponse
+
+    @POST("auth/qr/approve")
+    suspend fun approveQrLogin(
+        @Header("Authorization") token: String,
+        @Body request: QrAuthRequest,
+    ): SimpleResponse
+
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequest): AuthResponse
 
@@ -39,6 +66,12 @@ interface ApiService {
 
     @PUT("user/me")
     suspend fun updateCurrentUser(@Header("Authorization") token: String, @Body request: UpdateProfileRequest): UserResponse
+
+    @PATCH("user/me/privacy")
+    suspend fun updatePrivacy(
+        @Header("Authorization") token: String,
+        @Body request: UpdatePrivacyRequest,
+    ): UserResponse
 
     @Multipart
     @PUT("user/me/avatar")

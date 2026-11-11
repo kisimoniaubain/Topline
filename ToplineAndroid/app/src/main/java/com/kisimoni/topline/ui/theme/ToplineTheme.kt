@@ -18,13 +18,17 @@ private val ToplineLightColors = lightColorScheme(
 )
 
 private val ToplineDarkColors = darkColorScheme(
-    primary = Color(0xFFF57F17),
+    primary = Color(0xFFFF7A00),
     onPrimary = Color.Black,
-    background = Color(0xFF0A0A0A),
-    surface = Color(0xFF121212),
+    background = Color(0xFF121315),
+    surface = Color(0xFF1F2022),
     onSurface = Color.White,
-    secondary = Color.White,
+    secondary = Color(0xFFFFB77D),
     onSecondary = Color.Black,
+    surfaceVariant = Color(0xFF343537),
+    onSurfaceVariant = Color(0xFFE0C0AF),
+    outline = Color(0xFFA78B7C),
+    outlineVariant = Color(0xFF584235),
 )
 
 @Composable

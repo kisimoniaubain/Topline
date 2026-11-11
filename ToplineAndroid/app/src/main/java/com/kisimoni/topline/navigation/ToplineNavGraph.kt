@@ -2,18 +2,19 @@ package com.kisimoni.topline.navigation
 
 import com.kisimoni.topline.ui.icons.BootstrapIcons
 
+import android.content.Intent
+import android.net.Uri
+import com.facebook.CallbackManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +70,9 @@ fun ToplineNavGraph(
     postViewModel: PostViewModel,
     darkMode: Boolean,
     language: String,
+    qrApprovalToken: String?,
+    onQrApprovalHandled: () -> Unit,
+    facebookCallbackManager: CallbackManager,
     onDarkModeChanged: (Boolean) -> Unit,
     onLanguageChanged: (String) -> Unit,
 ) {
@@ -89,6 +95,44 @@ fun ToplineNavGraph(
     var seekSequence by remember { mutableStateOf(0L) }
     var seekRequest by remember { mutableStateOf<Pair<Long, Float>?>(null) }
     var showNetworkLoader by remember { mutableStateOf(false) }
+    var showQrApproval by remember { mutableStateOf(false) }
+
+    LaunchedEffect(qrApprovalToken, authState.isAuthenticated) {
+        showQrApproval = !qrApprovalToken.isNullOrBlank() && authState.isAuthenticated
+    }
+
+    if (showQrApproval && !qrApprovalToken.isNullOrBlank()) {
+        AlertDialog(
+            onDismissRequest = {
+                showQrApproval = false
+                onQrApprovalHandled()
+            },
+            title = { Text("Approve Topline sign-in?") },
+            text = { Text("Only approve this request if you started signing in on a device you trust.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        authViewModel.approveQrLogin(qrApprovalToken) {
+                            showQrApproval = false
+                            onQrApprovalHandled()
+                        }
+                    },
+                ) {
+                    Text("Approve", color = Color(0xFFFF7A00))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showQrApproval = false
+                        onQrApprovalHandled()
+                    },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
@@ -167,8 +211,11 @@ fun ToplineNavGraph(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (currentRoute == Routes.HOME) 3.dp else 1.dp)
-                            .background(colorScheme.outlineVariant)
+                            .height(if (currentRoute == Routes.HOME) 2.dp else 1.dp)
+                            .background(
+                                if (currentRoute == Routes.HOME) Color.White.copy(alpha = 0.2f)
+                                else Color.White.copy(alpha = 0.08f),
+                            )
                             .then(
                                 if (currentRoute == Routes.HOME) {
                                     Modifier.pointerInput(currentRoute) {
@@ -207,87 +254,124 @@ fun ToplineNavGraph(
                         }
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .background(Color.Black.copy(alpha = 0.95f))
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                    BottomTab(
-                        label = "Home",
-                        selected = currentRoute == Routes.HOME || currentRoute == Routes.NOTIFICATIONS,
-                        onClick = { navController.navigate(Routes.HOME) { launchSingleTop = true } },
-                    ) {
-                        HomeOutlineIcon()
-                    }
-                    BottomTab(
-                        label = "People",
-                        selected = currentRoute == Routes.PEOPLE,
-                        onClick = { navController.navigate(Routes.PEOPLE) { launchSingleTop = true } },
-                    ) {
-                        UserGroupIcon()
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
-                            .semantics { contentDescription = "Create post" }
-                            .clickable {
-                                navController.navigate(Routes.UPLOAD) { launchSingleTop = true }
+                        BottomTab(
+                            label = "Home",
+                            selected = currentRoute == Routes.HOME ||
+                                currentRoute == Routes.NOTIFICATIONS,
+                            onClick = {
+                                navController.navigate(Routes.HOME) {
+                                    launchSingleTop = true
+                                }
                             },
-                        contentAlignment = Alignment.Center,
-                    ) {
+                            selectedColor = Color.White,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            HomeOutlineIcon()
+                        }
+
+                        BottomTab(
+                            label = "Friends",
+                            selected = currentRoute == Routes.PEOPLE,
+                            onClick = {
+                                navController.navigate(Routes.PEOPLE) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            UserGroupIcon()
+                        }
+
                         Box(
-                            modifier = Modifier.size(width = 76.dp, height = 48.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(64.dp)
+                                .semantics { contentDescription = "Create post" }
+                                .clickable {
+                                    navController.navigate(Routes.UPLOAD) {
+                                        launchSingleTop = true
+                                    }
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
-                                Modifier
-                                    .size(width = 68.dp, height = 40.dp)
-                                    .offset(x = (-4).dp)
-                                    .background(Color(0xFFFF8500), RoundedCornerShape(15.dp)),
+                                modifier = Modifier
+                                    .size(width = 36.dp, height = 40.dp)
+                                    .align(Alignment.CenterStart)
+                                    .background(
+                                        Color(0xFFFFB77D),
+                                        RoundedCornerShape(9.dp),
+                                    ),
                             )
                             Box(
-                                Modifier
-                                    .size(width = 68.dp, height = 40.dp)
-                                    .offset(x = 4.dp)
-                                    .background(Color.White, RoundedCornerShape(15.dp)),
+                                modifier = Modifier
+                                    .size(width = 36.dp, height = 40.dp)
+                                    .align(Alignment.CenterEnd)
+                                    .background(
+                                        Color(0xFFFF5400),
+                                        RoundedCornerShape(9.dp),
+                                    ),
                             )
                             Box(
-                                Modifier
-                                    .size(width = 64.dp, height = 36.dp)
-                                    .background(Color.Black, RoundedCornerShape(13.dp)),
+                                modifier = Modifier
+                                    .size(width = 48.dp, height = 40.dp)
+                                    .background(
+                                        Color.White,
+                                        RoundedCornerShape(9.dp),
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     BootstrapIcons.Add(),
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp),
+                                    contentDescription = "Create Video",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(26.dp),
                                 )
                             }
                         }
-                    }
-                    BottomTab(
-                        label = "Inbox",
-                        selected = currentRoute == Routes.MESSAGES,
-                        unreadCount = inboxState.unreadMessageCount,
-                        onClick = {
-                            messageContact = null
-                            messageContactId = null
-                            navController.navigate(Routes.MESSAGES) { launchSingleTop = true }
-                        },
-                    ) {
-                        MessageDotsIcon()
-                    }
-                    BottomTab(
-                        label = "Profile",
-                        selected = currentRoute == Routes.PROFILE,
-                        onClick = {
-                            selectedPerson = null
-                            navController.navigate(Routes.PROFILE) { launchSingleTop = true }
-                        },
-                    ) {
-                        ProfileOutlineIcon()
-                    }
+
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            BottomTab(
+                                label = "Inbox",
+                                selected = currentRoute == Routes.MESSAGES,
+                                unreadCount = inboxState.unreadMessageCount,
+                                onClick = {
+                                    messageContact = null
+                                    messageContactId = null
+                                    navController.navigate(Routes.MESSAGES) {
+                                        launchSingleTop = true
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                MessageDotsIcon()
+                            }
+                        }
+
+                        BottomTab(
+                            label = "Profile",
+                            selected = currentRoute == Routes.PROFILE,
+                            onClick = {
+                                selectedPerson = null
+                                navController.navigate(Routes.PROFILE) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            ProfileOutlineIcon()
+                        }
                     }
                 }
             }
@@ -302,6 +386,7 @@ fun ToplineNavGraph(
             composable(Routes.LOGIN) {
                 AuthScreen(
                     authViewModel = authViewModel,
+                    facebookCallbackManager = facebookCallbackManager,
                     onNavigateToHome = {
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
@@ -506,7 +591,6 @@ fun ToplineNavGraph(
                     isSavedCollectionsLoading = postState.isSavedCollectionsLoading,
                     isSavedPostsLoading = postState.isSavedPostsLoading,
                     savedPostsError = postState.savedPostsError,
-                    postsCount = postState.ownPostsCount,
                     errorMessage = if (isOwnProfile) postState.ownPostsError else otherProfileState.errorMessage,
                     statsErrorMessage = if (isOwnProfile) postState.ownProfileCountsError else null,
                     isOwnProfile = isOwnProfile,
@@ -528,6 +612,18 @@ fun ToplineNavGraph(
                         navController.navigate(Routes.NOTIFICATIONS)
                     },
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
+                    onShare = {
+                        val profileName = user?.username
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { "@$it" }
+                            ?: user?.name
+                            ?: "Topline"
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "Check out $profileName on Topline.")
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share profile"))
+                    },
                     onMessage = {
                         messageContact = selectedPerson?.name
                         messageContactId = selectedPerson?.id
@@ -599,7 +695,60 @@ fun ToplineNavGraph(
                     onDarkModeChanged = onDarkModeChanged,
                     onLanguageChanged = onLanguageChanged,
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
-                    onDashboard = { navController.navigate(Routes.DASHBOARD) },
+                    onContentPreferences = { navController.navigate(Routes.UPLOAD) },
+                    onNotifications = {
+                        postViewModel.loadNotifications()
+                        navController.navigate(Routes.NOTIFICATIONS)
+                    },
+                    onMessages = {
+                        messageContact = null
+                        messageContactId = null
+                        navController.navigate(Routes.MESSAGES)
+                    },
+                    onSecuritySettings = {
+                        context.startActivity(
+                            Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    },
+                    onReportProblem = {
+                        val reportIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Topline feedback")
+                            putExtra(Intent.EXTRA_TEXT, "I would like to report a problem with Topline.")
+                        }
+                        context.startActivity(Intent.createChooser(reportIntent, "Report a problem"))
+                    },
+                    onShareProfile = {
+                        val profile = user?.username?.takeIf { it.isNotBlank() }?.let { "@$it" }
+                            ?: user?.name.orEmpty().ifBlank { "Topline" }
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "Find $profile on Topline.")
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share profile"))
+                    },
+                    onClearCache = {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val cacheDir = context.cacheDir
+                            val entries = cacheDir.listFiles()
+                                ?: if (cacheDir.exists()) {
+                                    throw java.io.IOException("Unable to read the app cache.")
+                                } else {
+                                    emptyArray()
+                                }
+                            entries.forEach { entry ->
+                                if (!entry.deleteRecursively()) {
+                                    throw java.io.IOException("Unable to clear ${entry.name}.")
+                                }
+                            }
+                        }
+                    },
+                    isUpdatingPrivacy = authState.isUpdatingPrivacy,
+                    privacyError = authState.privacyError,
+                    onPrivateAccountChanged = authViewModel::updatePrivateAccount,
                     onLogout = {
                         authViewModel.logout()
                         navController.navigate(Routes.LOGIN) {

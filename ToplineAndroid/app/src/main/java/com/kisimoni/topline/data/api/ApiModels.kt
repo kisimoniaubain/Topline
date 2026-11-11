@@ -15,6 +15,7 @@ data class User(
     @SerialName("profilePicture") val profilePicture: String? = null,
     @SerialName("bio") val bio: String? = null,
     @SerialName("location") val location: String? = null,
+    @SerialName("privateAccount") val privateAccount: Boolean = false,
 )
 
 @Serializable
@@ -23,12 +24,60 @@ data class AuthResponse(
     @SerialName("message") val message: String = "",
     @SerialName("token") val token: String? = null,
     @SerialName("user") val user: User? = null,
+    @SerialName("verificationRequired") val verificationRequired: Boolean = false,
+    @SerialName("email") val email: String? = null,
+)
+
+@Serializable
+data class GoogleSignupVerificationRequest(
+    @SerialName("email") val email: String,
+    @SerialName("code") val code: String,
 )
 
 @Serializable
 data class AuthRequest(
     @SerialName("identifier") val identifier: String,
     @SerialName("password") val password: String,
+)
+
+@Serializable
+data class PasswordResetRequest(
+    @SerialName("email") val email: String,
+)
+
+@Serializable
+data class PasswordResetConfirmRequest(
+    @SerialName("email") val email: String,
+    @SerialName("code") val code: String,
+    @SerialName("password") val password: String,
+)
+
+@Serializable
+data class ProviderAuthRequest(
+    @SerialName("credential") val credential: String,
+)
+
+@Serializable
+data class QrAuthRequest(
+    @SerialName("token") val token: String,
+)
+
+@Serializable
+data class QrAuthStartResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("message") val message: String = "",
+    @SerialName("token") val token: String? = null,
+    @SerialName("qrPayload") val qrPayload: String? = null,
+    @SerialName("expiresAt") val expiresAt: String? = null,
+)
+
+@Serializable
+data class QrAuthPollResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("status") val status: String = "",
+    @SerialName("message") val message: String = "",
+    @SerialName("token") val authToken: String? = null,
+    @SerialName("user") val user: User? = null,
 )
 
 @Serializable
@@ -53,6 +102,11 @@ data class UpdateProfileRequest(
 )
 
 @Serializable
+data class UpdatePrivacyRequest(
+    @SerialName("privateAccount") val privateAccount: Boolean,
+)
+
+@Serializable
 data class PostAuthor(
     @SerialName("_id") val id: String = "",
     @SerialName("name") val name: String = "",
@@ -70,6 +124,7 @@ data class PostItem(
     @SerialName("videoUrl") val videoUrl: String? = null,
     @SerialName("video_url") val legacyVideoUrl: String? = null,
     @SerialName("mediaUrl") val mediaUrl: String? = null,
+    @SerialName("media_url") val legacyMediaUrl: String? = null,
     @SerialName("mediaType") val mediaType: String? = null,
     @SerialName("media_type") val legacyMediaType: String? = null,
     @SerialName("coverImage") val coverImage: String? = null,
@@ -94,7 +149,7 @@ data class PostItem(
             it.equals("video", ignoreCase = true) ||
                 it.startsWith("video/", ignoreCase = true)
         } == true
-        return sequenceOf(mediaUrl, image)
+        return sequenceOf(mediaUrl, legacyMediaUrl, image)
             .firstOrNull { url ->
                 !url.isNullOrBlank() && url.isValidMediaUrl() &&
                     (isDeclaredVideo || url.looksLikeVideoUrl())
@@ -104,7 +159,7 @@ data class PostItem(
 
     fun displayableMediaUrl(): String? {
         playableVideoUrl()?.let { return it }
-        return sequenceOf(image, mediaUrl)
+        return sequenceOf(image, mediaUrl, legacyMediaUrl)
             .firstOrNull { url ->
                 !url.isNullOrBlank() && url.isValidMediaUrl() && !url.looksLikeVideoUrl()
             }

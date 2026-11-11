@@ -174,6 +174,40 @@ router.put("/me", async (req, res) => {
   }
 });
 
+router.patch("/me/privacy", async (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Sign in to update your privacy settings." });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return res.status(401).json({ message: "Your session has expired." });
+  }
+  if (typeof req.body?.privateAccount !== "boolean") {
+    return res.status(400).json({ message: "Choose whether your account should be private." });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      decoded.userId,
+      { $set: { privateAccount: req.body.privateAccount } },
+      { new: true, runValidators: true },
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error("Update privacy settings error:", error);
+    return res.status(500).json({ message: "Unable to update your privacy settings." });
+  }
+});
+
 router.delete("/me", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];

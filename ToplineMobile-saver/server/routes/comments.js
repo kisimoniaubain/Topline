@@ -7,6 +7,7 @@ import { v2 as cloudinary } from "cloudinary";
 import Comment from "../models/Comment.js";
 import Post from "../models/Post.js";
 import { createNotification } from "../utils/createNotification.js";
+import { canViewPost } from "../utils/postAccess.js";
 
 const router = express.Router();
 const imageUpload = multer({
@@ -61,15 +62,18 @@ router.get("/:postId", async (req, res) => {
 			return res.status(400).json({ message: "Invalid post ID." });
 		}
 
-		const post = await Post.findById(postId).select("commentsCount allowComments");
+		const post = await Post.findById(postId).select("commentsCount allowComments author");
 		if (!post) {
+			return res.status(404).json({ message: "Post not found." });
+		}
+		const currentUserId = getOptionalAuthenticatedUserId(req);
+		if (!(await canViewPost(post, currentUserId))) {
 			return res.status(404).json({ message: "Post not found." });
 		}
 		if (!post.allowComments) {
 			return res.json({ comments: [], commentsCount: 0 });
 		}
 
-		const currentUserId = getOptionalAuthenticatedUserId(req);
 		const comments = await Comment.find({ post: postId })
 			.sort({ createdAt: 1 })
 			.limit(100)
@@ -119,6 +123,9 @@ router.post("/:postId", imageUpload.single("image"), async (req, res) => {
 
 		const post = await Post.findById(postId).select("author allowComments");
 		if (!post) {
+			return res.status(404).json({ message: "Post not found." });
+		}
+		if (!(await canViewPost(post, authorId))) {
 			return res.status(404).json({ message: "Post not found." });
 		}
 		if (!post.allowComments) {
@@ -209,8 +216,12 @@ router.post("/:commentId/like", async (req, res) => {
 			return res.status(400).json({ message: "Invalid comment ID." });
 		}
 
-		const comment = await Comment.findById(commentId).select("likes");
+		const comment = await Comment.findById(commentId).select("likes post");
 		if (!comment) {
+			return res.status(404).json({ message: "Comment not found." });
+		}
+		const post = await Post.findById(comment.post).select("author");
+		if (!(await canViewPost(post, userId))) {
 			return res.status(404).json({ message: "Comment not found." });
 		}
 		const alreadyLiked = comment.likes.some((id) => String(id) === String(userId));

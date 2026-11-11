@@ -1001,15 +1001,22 @@ class PostViewModel(
         }
     }
 
-    fun toggleFollow(token: String, userId: String, onSuccess: ((Boolean) -> Unit)? = null) {
+    fun toggleFollow(
+        token: String,
+        userId: String,
+        onFailure: ((String) -> Unit)? = null,
+        onSuccess: ((Boolean) -> Unit)? = null,
+    ) {
         viewModelScope.launch {
             try {
                 val response = postRepository.toggleFollow(token, userId)
                 onSuccess?.invoke(response.isFollowing)
             } catch (e: Exception) {
+                val message = e.localizedMessage ?: "Unable to update follow status."
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = e.localizedMessage ?: "Unable to update follow status.",
+                    errorMessage = message,
                 )
+                onFailure?.invoke(message)
             }
         }
     }

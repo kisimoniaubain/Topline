@@ -18,8 +18,13 @@ internal fun cloudinaryPlaybackUrl(videoUrl: String): String {
 
     val transformationStart = markerIndex + uploadMarker.length
     val pathAfterUpload = normalizedUrl.substring(transformationStart)
-    val firstSegment = pathAfterUpload.substringBefore('/')
-    if (firstSegment.contains("f_mp4") && firstSegment.contains("vc_h264")) {
+    val transformationSegments = pathAfterUpload
+        .substringBefore('?')
+        .substringBefore('#')
+        .split('/')
+        .takeWhile { segment -> !segment.matches(Regex("v\\d+")) }
+    val transformations = transformationSegments.flatMap { it.split(',') }
+    if ("f_mp4" in transformations && "vc_h264" in transformations) {
         return normalizedUrl
     }
 

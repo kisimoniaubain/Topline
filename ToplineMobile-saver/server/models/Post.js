@@ -25,6 +25,16 @@ const postSchema = new mongoose.Schema(
       default: "",
     },
 
+    mediaUrl: {
+      type: String,
+      default: "",
+    },
+
+    mediaType: {
+      type: String,
+      default: "",
+    },
+
     coverImage: {
       type: String,
       default: "",

@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    privateAccount: {
+      type: Boolean,
+      default: false,
+    },
+
     lastActiveAt: {
       type: Date,
       default: null,
@@ -35,12 +40,21 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
+      required: false,
     },
 
     dateOfBirth: {
       type: Date,
-      required: true,
+      required: false,
+      default: null,
+    },
+
+    federatedIdentities: {
+      type: [{
+        provider: { type: String, enum: ["google", "facebook"], required: true },
+        subject: { type: String, required: true },
+      }],
+      default: [],
     },
 
     gender: {
@@ -67,6 +81,11 @@ const userSchema = new mongoose.Schema(
   {
     timestamps: true,
   }
+);
+
+userSchema.index(
+  { "federatedIdentities.provider": 1, "federatedIdentities.subject": 1 },
+  { unique: true, sparse: true },
 );
 
 const User = mongoose.model("User", userSchema);

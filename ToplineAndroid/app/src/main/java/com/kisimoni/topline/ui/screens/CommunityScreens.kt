@@ -50,12 +50,39 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +91,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
@@ -74,6 +102,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.kisimoni.topline.data.api.ConversationItem
 import com.kisimoni.topline.data.api.DirectMessage
@@ -1173,7 +1202,16 @@ fun SettingsScreen(
     onDarkModeChanged: (Boolean) -> Unit,
     onLanguageChanged: (String) -> Unit,
     onEditProfile: () -> Unit,
-    onDashboard: () -> Unit,
+    onContentPreferences: () -> Unit,
+    onNotifications: () -> Unit,
+    onMessages: () -> Unit,
+    onSecuritySettings: () -> Unit,
+    onReportProblem: () -> Unit,
+    onShareProfile: () -> Unit,
+    onClearCache: suspend () -> Unit,
+    isUpdatingPrivacy: Boolean,
+    privacyError: String?,
+    onPrivateAccountChanged: (Boolean) -> Unit,
     onLogout: () -> Unit,
     isDeletingAccount: Boolean = false,
     accountDeletionError: String? = null,
@@ -1181,86 +1219,252 @@ fun SettingsScreen(
 ) {
     var showLanguages by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var confirmSwitchAccount by remember { mutableStateOf(false) }
     var confirmDeleteAccount by remember { mutableStateOf(false) }
+    var showPolicies by remember { mutableStateOf(false) }
+    var cacheStatus by remember { mutableStateOf<String?>(null) }
+    var isClearingCache by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val languages = listOf("English", "Kiswahili", "Français", "Nederlands", "العربية", "Español")
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 20.dp)) {
-        ScreenHeader(title = "Settings", onBack = onBack)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize().background(Color(0xFF121315))) {
+        ScreenHeader(title = "User Settings", onBack = onBack)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             item {
                 SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        InitialAvatar(user?.name.orEmpty(), 54, user?.profilePicture)
-                        Column(Modifier.padding(start = 12.dp)) {
-                            Text("Account", color = Color.Gray, style = MaterialTheme.typography.labelLarge)
-                            Text(user?.name.orEmpty().ifBlank { "Topline User" }, fontWeight = FontWeight.Bold)
-                            Text(user?.email.orEmpty(), color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(Orange, CircleShape)
+                                .padding(2.dp),
+                        ) {
+                            UserAvatar(user?.name.orEmpty(), user?.profilePicture, 52)
+                        }
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(
+                                "@${user?.username.orEmpty().ifBlank { "toplineuser" }}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                user?.name.orEmpty().ifBlank { "Topline User" },
+                                color = Color(0xFF9EACB8),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        IconButton(onClick = onShareProfile) {
+                            Icon(Icons.Filled.QrCode2, contentDescription = "Share profile", tint = Orange)
                         }
                     }
                 }
             }
-            item {
-                SettingsCard(
-                    modifier = Modifier.clickable(onClick = onDashboard),
-                ) {
-                    Text("Creator dashboard", fontWeight = FontWeight.Bold)
-                    Text("Track your posts, likes, comments, and top-performing content.", color = Color.Gray)
-                }
-            }
+
+            item { SettingsSectionLabel("Account") }
             item {
                 SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(BootstrapIcons.Sliders(), contentDescription = null, tint = Orange)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Appearance", fontWeight = FontWeight.SemiBold)
-                            Text(if (darkMode) "Dark mode" else "Light mode", color = Color.Gray)
-                            Text("Applies across the entire app", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    SettingsItem(
+                        icon = Icons.Filled.PersonOutline,
+                        title = "Manage account",
+                        description = "Phone, email, profile details",
+                        onClick = onEditProfile,
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SettingsLeadingIcon(Icons.Filled.Lock, Orange)
+                        Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
+                            Text("Private account", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Only followers can see your posts",
+                                color = Color(0xFF9EACB8),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
-                        Switch(checked = darkMode, onCheckedChange = onDarkModeChanged)
+                        Switch(
+                            checked = user?.privateAccount == true,
+                            onCheckedChange = onPrivateAccountChanged,
+                            enabled = !isUpdatingPrivacy,
+                        )
                     }
-                }
-            }
-            item {
-                SettingsCard(modifier = Modifier.clickable { showLanguages = true }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(BootstrapIcons.Language(), contentDescription = null, tint = Orange)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Language", fontWeight = FontWeight.SemiBold)
-                            Text(language, color = Color.Gray)
-                            Text("Choose your preferred language", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-                        }
+                    if (!privacyError.isNullOrBlank()) {
+                        Text(
+                            privacyError,
+                            modifier = Modifier.padding(start = 60.dp, end = 16.dp, bottom = 10.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
-                }
-            }
-            item {
-                Button(
-                    onClick = onEditProfile,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Orange),
-                    shape = RoundedCornerShape(14.dp),
-                ) { Text("Edit Profile") }
-            }
-            if (!accountDeletionError.isNullOrBlank()) {
-                item { Text(accountDeletionError, color = MaterialTheme.colorScheme.error) }
-            }
-            item {
-                TextButton(
-                    onClick = { confirmDeleteAccount = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isDeletingAccount,
-                ) {
-                    Text(
-                        if (isDeletingAccount) "Deleting account..." else "Delete Account",
-                        color = Color(0xFFC62828),
-                        fontWeight = FontWeight.Bold,
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    SettingsItem(
+                        icon = Icons.Filled.Visibility,
+                        title = "Social interactions",
+                        description = "Messages and post comment controls",
+                        trailing = "Inbox",
+                        onClick = onMessages,
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    SettingsItem(
+                        icon = Icons.Filled.VerifiedUser,
+                        title = "Security & permissions",
+                        description = "App permissions and device settings",
+                        trailing = "Secure",
+                        onClick = onSecuritySettings,
                     )
                 }
             }
+
+            item { SettingsSectionLabel("Content & display") }
             item {
-                TextButton(onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Log Out", color = Color(0xFFC62828), fontWeight = FontWeight.Bold)
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Filled.NotificationsActive,
+                        title = "Notifications",
+                        description = "Activity, likes, replies, and follows",
+                        onClick = onNotifications,
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    SettingsItem(
+                        icon = Icons.Filled.Tune,
+                        title = "Content preferences",
+                        description = "Choose comment access when you publish",
+                        onClick = onContentPreferences,
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SettingsLeadingIcon(Icons.Filled.DarkMode, Orange)
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text("Display theme", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Text("Choose your app appearance", color = Color(0xFF9EACB8), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                                .background(Color(0xFF14161A), RoundedCornerShape(12.dp))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            ThemeChoice(
+                                label = "Dark Matrix",
+                                selected = darkMode,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onDarkModeChanged(true) },
+                            )
+                            ThemeChoice(
+                                label = "Light Mode",
+                                selected = !darkMode,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onDarkModeChanged(false) },
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    SettingsItem(
+                        icon = Icons.Filled.Translate,
+                        title = "Language & playback",
+                        description = "Captions, language, and playback",
+                        trailing = language,
+                        onClick = { showLanguages = true },
+                    )
+                }
+            }
+
+            item { SettingsSectionLabel("Support & community") }
+            item {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Filled.Flag,
+                        title = "Report a problem",
+                        description = "Send feedback about the app",
+                        onClick = onReportProblem,
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    SettingsItem(
+                        icon = Icons.Filled.Policy,
+                        title = "Community guidelines",
+                        description = "Standards for posts and interactions",
+                        onClick = { showPolicies = true },
+                    )
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SettingsLeadingIcon(Icons.Filled.Memory, Color(0xFF9EACB8))
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text("Version", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text("Topline 1.1", color = Color(0xFF9EACB8), style = MaterialTheme.typography.bodySmall)
+                            if (!cacheStatus.isNullOrBlank()) {
+                                Text(cacheStatus.orEmpty(), color = Orange, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        TextButton(
+                            onClick = {
+                                if (isClearingCache) return@TextButton
+                                isClearingCache = true
+                                cacheStatus = null
+                                scope.launch {
+                                    try {
+                                        onClearCache()
+                                        cacheStatus = "Cache cleared"
+                                    } catch (error: java.io.IOException) {
+                                        cacheStatus = error.localizedMessage ?: "Unable to clear cache"
+                                    } finally {
+                                        isClearingCache = false
+                                    }
+                                }
+                            },
+                            enabled = !isClearingCache,
+                        ) {
+                            Text(if (isClearingCache) "Clearing..." else "Clear Cache", color = Orange)
+                        }
+                    }
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = { confirmSwitchAccount = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.Filled.SwapHoriz, contentDescription = null, tint = Orange)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Switch Account", color = Orange)
+                    }
+                    Button(
+                        onClick = { confirmLogout = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A2022)),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Icon(Icons.Filled.Logout, contentDescription = null, tint = Color(0xFFFFB4AB))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Log Out", color = Color(0xFFFFB4AB))
+                    }
+                    if (!accountDeletionError.isNullOrBlank()) {
+                        Text(accountDeletionError, color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(
+                        onClick = { confirmDeleteAccount = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isDeletingAccount,
+                    ) {
+                        Text(
+                            if (isDeletingAccount) "Deleting account..." else "Delete Account",
+                            color = Color(0xFFFF7777),
+                        )
+                    }
                 }
             }
         }
@@ -1303,6 +1507,7 @@ fun SettingsScreen(
     if (confirmLogout) {
         AlertDialog(
             onDismissRequest = { confirmLogout = false },
+            title = { Text("Log out?") },
             text = { Text("Are you sure you want to log out?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -1311,6 +1516,36 @@ fun SettingsScreen(
                 }) { Text("Log Out", color = Color(0xFFC62828)) }
             },
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (confirmSwitchAccount) {
+        AlertDialog(
+            onDismissRequest = { confirmSwitchAccount = false },
+            title = { Text("Switch account?") },
+            text = { Text("You will be signed out and can sign in to a different account.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSwitchAccount = false
+                    onLogout()
+                }) { Text("Continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSwitchAccount = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showPolicies) {
+        AlertDialog(
+            onDismissRequest = { showPolicies = false },
+            title = { Text("Community guidelines") },
+            text = {
+                Text("Be respectful, share content you have permission to post, and report harmful or inappropriate content.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showPolicies = false }) { Text("Done") }
+            },
         )
     }
 
@@ -1336,6 +1571,93 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+
+}
+
+@Composable
+private fun SettingsSectionLabel(title: String) {
+    Text(
+        title.uppercase(),
+        modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+        color = Color(0xFF9EACB8),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+    )
+}
+
+@Composable
+private fun SettingsLeadingIcon(icon: ImageVector, tint: Color) {
+    Box(
+        modifier = Modifier.size(36.dp).background(Color(0xFF292A2C), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = tint)
+    }
+}
+
+@Composable
+private fun SettingsItem(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    trailing: String? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsLeadingIcon(icon, Color.White)
+        Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(
+                description,
+                color = Color(0xFF9EACB8),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (!trailing.isNullOrBlank()) {
+            Text(trailing, color = Color(0xFF9EACB8), style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.width(4.dp))
+        }
+        Icon(
+            Icons.Filled.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = Color(0xFF9EACB8),
+        )
+    }
+}
+
+@Composable
+private fun ThemeChoice(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier.clip(RoundedCornerShape(9.dp))
+            .background(if (selected) Color(0xFF292A2C) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier.size(9.dp).background(if (selected) Orange else Color(0xFF584235), CircleShape),
+        )
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = if (selected) Color.White else Color(0xFF9EACB8),
+            style = MaterialTheme.typography.labelSmall,
+        )
+        if (selected) {
+            Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Orange)
+        }
     }
 }
 
@@ -1445,7 +1767,6 @@ fun UserProfileScreen(
     isSavedCollectionsLoading: Boolean,
     isSavedPostsLoading: Boolean,
     savedPostsError: String?,
-    postsCount: Int,
     errorMessage: String?,
     statsErrorMessage: String?,
     isOwnProfile: Boolean,
@@ -1462,6 +1783,7 @@ fun UserProfileScreen(
     onDashboard: () -> Unit,
     onNotifications: () -> Unit,
     onEditProfile: () -> Unit,
+    onShare: () -> Unit,
     onMessage: () -> Unit,
     onFollow: () -> Unit,
 ) {
@@ -1496,32 +1818,32 @@ fun UserProfileScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val profileBackground = Color(0xFF101010)
+    val profileSurface = Color(0xFF1C1C1C)
+    val profileText = Color.White
+    val profileSecondary = Color(0xFFAAAAAA)
+    val likesCount = posts.sumOf { it.likesCount }
+
+    Column(Modifier.fillMaxSize().background(profileBackground)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back")
+                Icon(BootstrapIcons.ArrowBack(), contentDescription = "Back", tint = profileText)
             }
-            Text(if (username.isBlank()) "Profile" else "@$username", fontWeight = FontWeight.Bold)
+            Text(
+                if (isOwnProfile) "User Profile" else "@$username",
+                color = profileText,
+                fontWeight = FontWeight.Bold,
+            )
             Spacer(Modifier.weight(1f))
             if (isOwnProfile) {
-                val menuIconTint = MaterialTheme.colorScheme.onSurface
+                IconButton(onClick = onNotifications) {
+                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = profileText)
+                }
                 IconButton(onClick = { isProfileMenuOpen = true }) {
-                    Canvas(Modifier.size(24.dp)) {
-                        val lineStart = 4.dp.toPx()
-                        val lineEnd = size.width - lineStart
-                        val strokeWidth = 2.dp.toPx()
-                        listOf(6.dp, 12.dp, 18.dp).forEach { y ->
-                            drawLine(
-                                color = menuIconTint,
-                                start = Offset(lineStart, y.toPx()),
-                                end = Offset(lineEnd, y.toPx()),
-                                strokeWidth = strokeWidth,
-                            )
-                        }
-                    }
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Profile settings", tint = profileText)
                 }
             }
         }
@@ -1531,29 +1853,45 @@ fun UserProfileScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    UserAvatar(name, user?.profilePicture ?: person?.profilePicture, 96)
-                    if (isOwnProfile) {
-                        TextButton(onClick = onEditProfile) { Text("Edit profile photo", color = Orange) }
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .background(Orange, CircleShape)
+                                .padding(3.dp),
+                        ) {
+                            UserAvatar(name, user?.profilePicture ?: person?.profilePicture, 96)
+                        }
+                        if (isOwnProfile) {
+                            IconButton(
+                                onClick = onEditProfile,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(32.dp)
+                                    .background(profileText, CircleShape),
+                            ) {
+                                Icon(Icons.Filled.Add, contentDescription = "Edit profile photo", tint = Color.Black)
+                            }
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    if (username.isNotBlank()) Text("@$username", color = Color.Gray)
+                    Text(name, style = MaterialTheme.typography.titleLarge, color = profileText, fontWeight = FontWeight.Bold)
+                    if (username.isNotBlank()) Text("@$username", color = profileSecondary)
                     if (bio.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
-                        Text(bio, textAlign = TextAlign.Center)
+                        Text(bio, color = profileText, textAlign = TextAlign.Center)
                     }
                     if (location.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
-                        Text(location, color = Color.Gray)
+                        Text(location, color = profileSecondary)
                     }
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(20.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        ProfileStat("Posts", if (isOwnProfile) postsCount else posts.size)
-                        ProfileStat("Followers", followersCount)
-                        ProfileStat("Following", followingCount)
+                        ProfileStat("Following", followingCount, profileText, profileSecondary)
+                        ProfileStat("Followers", followersCount, profileText, profileSecondary)
+                        ProfileStat("Likes", likesCount, profileText, profileSecondary)
                     }
                     if (!statsErrorMessage.isNullOrBlank()) {
                         Text(
@@ -1563,19 +1901,64 @@ fun UserProfileScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    Spacer(Modifier.height(14.dp))
-                    if (!isOwnProfile && person != null) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(onClick = onFollow, colors = ButtonDefaults.buttonColors(containerColor = Orange)) {
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (isOwnProfile) {
+                            Button(
+                                onClick = onEditProfile,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = profileSurface, contentColor = profileText),
+                            ) {
+                                Text("Edit profile")
+                            }
+                            Button(
+                                onClick = onShare,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = profileSurface, contentColor = profileText),
+                            ) {
+                                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.size(6.dp))
+                                Text("Share profile")
+                            }
+                            IconButton(
+                                onClick = { selectProfileTab(ProfileContentTab.SAVED) },
+                                modifier = Modifier.size(42.dp).background(profileSurface, RoundedCornerShape(10.dp)),
+                            ) {
+                                Icon(Icons.Filled.Bookmark, contentDescription = "Saved videos", tint = profileText)
+                            }
+                        } else if (person != null) {
+                            Button(
+                                onClick = onFollow,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Orange),
+                            ) {
                                 Text(if (isFollowing) "Following" else "Follow")
                             }
-                            TextButton(onClick = onMessage) { Text("Message", color = Orange) }
+                            Button(
+                                onClick = onMessage,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = profileSurface, contentColor = profileText),
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.size(6.dp))
+                                Text("Message")
+                            }
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
                     if (isOwnProfile) {
                         ProfileContentTabRow(
                             selectedTab = selectedProfileTab,
                             onSelectTab = selectProfileTab,
+                            accentColor = Orange,
+                            inactiveColor = profileSecondary,
                         )
                     }
                     if (isOwnProfile && selectedProfileTab == ProfileContentTab.SAVED) {
@@ -1712,7 +2095,7 @@ fun UserProfileScreen(
                         rowPosts.forEach { post ->
                             val videoUrl = post.playableVideoUrl()
                             Box(
-                                modifier = Modifier.weight(1f).aspectRatio(1f)
+                                modifier = Modifier.weight(1f).aspectRatio(0.62f)
                                     .clip(RoundedCornerShape(5.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                                     .clickable(enabled = videoUrl != null) {
@@ -1733,7 +2116,7 @@ fun UserProfileScreen(
                                         contentScale = ContentScale.Crop,
                                     )
                                 } else if (videoUrl == null) {
-                                    Text(post.text, modifier = Modifier.padding(8.dp), maxLines = 4)
+                                    Text(post.text, modifier = Modifier.padding(8.dp), maxLines = 4, color = profileText)
                                 }
                                 if (videoUrl != null) {
                                     Icon(
@@ -1742,11 +2125,30 @@ fun UserProfileScreen(
                                         modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
                                         tint = Color.White,
                                     )
+                                    Row(
+                                        modifier = Modifier.align(Alignment.BottomStart)
+                                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            BootstrapIcons.Play(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = Color.White,
+                                        )
+                                        Spacer(Modifier.size(3.dp))
+                                        Text(
+                                            post.likesCount.toString(),
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
                                 }
                             }
                         }
                         repeat(3 - rowPosts.size) {
-                            Spacer(Modifier.weight(1f).aspectRatio(1f))
+                            Spacer(Modifier.weight(1f).aspectRatio(0.62f))
                         }
                     }
                 }
@@ -1866,8 +2268,9 @@ private enum class ProfileContentTab(val description: String) {
 private fun ProfileContentTabRow(
     selectedTab: ProfileContentTab,
     onSelectTab: (ProfileContentTab) -> Unit,
+    accentColor: Color,
+    inactiveColor: Color,
 ) {
-    val contentColor = MaterialTheme.colorScheme.onSurface
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1880,24 +2283,24 @@ private fun ProfileContentTabRow(
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 val tabIcon = when (tab) {
-                    ProfileContentTab.POSTS -> BootstrapIcons.GridFill()
-                    ProfileContentTab.PRIVATE -> BootstrapIcons.Lock()
-                    ProfileContentTab.REPOSTS -> BootstrapIcons.ArrowRepeat()
-                    ProfileContentTab.SAVED -> BootstrapIcons.BookmarkFill()
-                    ProfileContentTab.LIKED -> BootstrapIcons.HeartFill()
+                    ProfileContentTab.POSTS -> Icons.Filled.GridView
+                    ProfileContentTab.PRIVATE -> Icons.Filled.Lock
+                    ProfileContentTab.REPOSTS -> Icons.Filled.Repeat
+                    ProfileContentTab.SAVED -> Icons.Filled.Bookmark
+                    ProfileContentTab.LIKED -> Icons.Filled.Favorite
                 }
                 Icon(
                     imageVector = tabIcon,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
-                    tint = if (selected) contentColor else contentColor.copy(alpha = 0.62f),
+                    tint = if (selected) accentColor else inactiveColor,
                 )
                 if (selected) {
                     Spacer(
                         Modifier
                             .fillMaxWidth(0.58f)
                             .height(2.dp)
-                            .background(contentColor),
+                            .background(accentColor),
                     )
                 } else {
                     Spacer(Modifier.height(2.dp))
@@ -2172,10 +2575,10 @@ private fun ProfileField(label: String, value: String, onValueChange: (String) -
 }
 
 @Composable
-private fun ProfileStat(label: String, count: Int) {
+private fun ProfileStat(label: String, count: Int, textColor: Color, secondaryColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(count.toString(), fontWeight = FontWeight.Bold)
-        Text(label, color = Color.Gray)
+        Text(count.toString(), color = textColor, fontWeight = FontWeight.Bold)
+        Text(label, color = secondaryColor)
     }
 }
 

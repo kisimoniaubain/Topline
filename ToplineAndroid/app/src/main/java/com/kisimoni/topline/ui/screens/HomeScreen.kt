@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -70,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -77,6 +80,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -106,9 +110,12 @@ fun HomeScreen(
     val uiState by postViewModel.uiState.collectAsState()
     val inboxState by postViewModel.inboxUiState.collectAsState()
     val commentsState by postViewModel.commentsUiState.collectAsState()
+    val peopleState by postViewModel.peopleUiState.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val likedPosts = remember { mutableStateMapOf<String, Boolean>() }
     val likeRequestsInFlight = remember { mutableStateMapOf<String, Boolean>() }
+    val followedAuthors = remember { mutableStateMapOf<String, Boolean>() }
+    val followRequestsInFlight = remember { mutableStateMapOf<String, Boolean>() }
     val sampleSavedPosts = remember { mutableStateMapOf<String, Boolean>() }
     val sampleSavedCounts = remember { mutableStateMapOf<String, Int>() }
     val sampleShareCounts = remember { mutableStateMapOf<String, Int>() }
@@ -137,10 +144,16 @@ fun HomeScreen(
             ),
             PostItem(
                 id = "sample-bunny",
-                author = PostAuthor(name = "Big Buck Bunny", username = "bigbuckbunny"),
-                text = "A short animated sample clip.",
-                video = "https://media.w3.org/2010/05/bunny/trailer.mp4",
-                likesCount = 532,
+                author = PostAuthor(name = "Marcus Rivera", username = "marcus_creates"),
+                text = "Late night vibes in Neo Tokyo 🚀 Tried the new hyperlapse trend! #urban #cinematic #fyp #viral",
+                // Keep the feed visually useful while the remote video buffers.
+                // This is the same full-bleed creator-style treatment as the
+                // supplied TikTok reference design.
+                image = "https://lh3.googleusercontent.com/aida-public/AB6AXuDeIzjZRydtWUe_CSeqPRSwjJfeEBmgVse5-RLLxskWg0QVkCtFuuSr0aGChZXY0p4HbbKlRan1JvZTe4ypf-c3NRJCkHjIWOOj-ZO9wL4nkzkPdcFjttpNlc-rlvNth4Y21tQLcuwQP0Xey5bYVmf2p8x4aVoYyOsvhu3pIxaRheoMKCG4WialT0qP-Sx9Cr61r7a-1_GyidASDJLodryAh6VmOANSacIsQmyJT7Bql8XR-JWs4kkd",
+                likesCount = 1_400_000,
+                commentsCount = 24_800,
+                savesCount = 182_000,
+                sharesCount = 49_100,
             ),
         )
     }
@@ -333,6 +346,15 @@ fun HomeScreen(
                 }
                 val savesCount = sampleSavedCounts[post.id] ?: post.savesCount
                 val sharesCount = sampleShareCounts[post.id] ?: post.sharesCount
+                val authorId = post.author.id
+                val authorFollowKey = authorId.ifBlank { post.author.username.ifBlank { post.id } }
+                val isFollowingAuthor = followedAuthors[authorFollowKey] ?: (
+                    authorId.isNotBlank() && (
+                        uiState.followingPosts.any { it.author.id == authorId } ||
+                            peopleState.following.any { it.id == authorId } ||
+                            peopleState.people.any { it.id == authorId && it.isFollowing }
+                        )
+                    )
                 fun likePost() {
                     if (post.id.startsWith("sample-")) {
                         likedPosts[post.id] = !isLiked
@@ -356,6 +378,41 @@ fun HomeScreen(
                         )
                     }
                 }
+                fun toggleAuthorFollow() {
+                    if (post.id.startsWith("sample-")) {
+                        followedAuthors[authorFollowKey] = !isFollowingAuthor
+                        return
+                    }
+                    if (authorId.isBlank()) {
+                        Toast.makeText(context, "This creator cannot be followed right now.", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                    if (followRequestsInFlight[authorFollowKey] == true) return
+                    val token = authViewModel.tokenOrNull()
+                    if (token.isNullOrBlank()) {
+                        Toast.makeText(context, "Sign in to follow creators.", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                    followRequestsInFlight[authorFollowKey] = true
+                    postViewModel.toggleFollow(
+                        token = token,
+                        userId = authorId,
+                        onSuccess = { isFollowing ->
+                            followedAuthors[authorFollowKey] = isFollowing
+                            followRequestsInFlight.remove(authorFollowKey)
+                            postViewModel.updatePeopleFollowState(authorId, isFollowing)
+                            Toast.makeText(
+                                context,
+                                if (isFollowing) "Following @${post.author.username}" else "Unfollowed @${post.author.username}",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                        onFailure = { message ->
+                            followRequestsInFlight.remove(authorFollowKey)
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
 
                 VideoFeedCard(
                     post = post,
@@ -364,6 +421,8 @@ fun HomeScreen(
                     isSaved = isSaved,
                     savesCount = savesCount,
                     sharesCount = sharesCount,
+                    isFollowingAuthor = isFollowingAuthor,
+                    onFollowAuthor = ::toggleAuthorFollow,
                     isActive = page == pagerState.currentPage && selectedPost == null,
                     onPlaybackProgress = onPlaybackProgress,
                     seekRequest = seekRequest,
@@ -437,7 +496,7 @@ fun HomeScreen(
                 BrandLogo(
                     contentDescription = "Topline",
                     modifier = Modifier
-                        .width(48.dp)
+                        .width(72.dp)
                         .height(28.dp),
                 )
                 Row(
@@ -445,48 +504,79 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "Following",
-                        color = if (showFollowing) Color.White else Color.White.copy(alpha = 0.68f),
-                        fontWeight = if (showFollowing) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.clickable { showFollowing = true }.padding(horizontal = 8.dp, vertical = 12.dp),
-                    )
-                    Text("|", color = Color.White.copy(alpha = 0.55f))
-                    Text(
-                        "For You",
-                        color = if (showFollowing) Color.White.copy(alpha = 0.68f) else Color.White,
-                        fontWeight = if (showFollowing) FontWeight.Normal else FontWeight.Bold,
-                        modifier = Modifier.clickable { showFollowing = false }.padding(horizontal = 8.dp, vertical = 12.dp),
-                    )
-                }
-                IconButton(onClick = {
-                    searchDraft = ""
-                    searchSubmitted = false
-                    showSearch = true
-                }) {
-                    Icon(BootstrapIcons.Search(), contentDescription = "Search videos", tint = Color.White)
-                }
-                IconButton(onClick = onOpenAlerts) {
-                    Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                        Icon(
-                            BootstrapIcons.Bell(),
-                            contentDescription = "Alerts",
-                            modifier = Modifier.size(24.dp),
-                            tint = Color.White,
+                    Column(
+                        modifier = Modifier.clickable { showFollowing = true }.padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            "Following",
+                            color = if (showFollowing) Color.White else Color.White.copy(alpha = 0.68f),
+                            fontWeight = if (showFollowing) FontWeight.Bold else FontWeight.Normal,
                         )
-                        if (unreadNotificationCount > 0) {
-                            Box(
-                                Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp)
-                                    .size(16.dp).clip(CircleShape).background(Color(0xFFE53935)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    if (unreadNotificationCount > 9) "9+" else unreadNotificationCount.toString(),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                        Box(
+                            Modifier.padding(top = 4.dp).width(22.dp).height(3.dp)
+                                .clip(CircleShape)
+                                .background(if (showFollowing) Color(0xFFFF7A00) else Color.Transparent),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.clickable { showFollowing = false }.padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            "For You",
+                            color = if (showFollowing) Color.White.copy(alpha = 0.68f) else Color.White,
+                            fontWeight = if (showFollowing) FontWeight.Normal else FontWeight.Bold,
+                        )
+                        Box(
+                            Modifier.padding(top = 4.dp).width(22.dp).height(3.dp)
+                                .clip(CircleShape)
+                                .background(if (showFollowing) Color.Transparent else Color(0xFFFF7A00)),
+                        )
+                    }
+                }
+                Box(
+                    Modifier.padding(end = 4.dp).size(40.dp).clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    IconButton(onClick = {
+                        searchDraft = ""
+                        searchSubmitted = false
+                        showSearch = true
+                    }) {
+                        Icon(BootstrapIcons.Search(), contentDescription = "Search videos", tint = Color.White)
+                    }
+                }
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    IconButton(onClick = onOpenAlerts) {
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            Icon(
+                                BootstrapIcons.Bell(),
+                                contentDescription = "Alerts",
+                                modifier = Modifier.size(24.dp),
+                                tint = Color.White,
+                            )
+                            if (unreadNotificationCount > 0) {
+                                Box(
+                                    Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-2).dp)
+                                        .size(16.dp).clip(CircleShape).background(Color(0xFFE53935)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        if (unreadNotificationCount > 9) "9+" else unreadNotificationCount.toString(),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                         }
                     }
@@ -997,6 +1087,8 @@ private fun VideoFeedCard(
     isSaved: Boolean,
     savesCount: Int,
     sharesCount: Int,
+    isFollowingAuthor: Boolean,
+    onFollowAuthor: () -> Unit,
     isActive: Boolean,
     onPlaybackProgress: (Float) -> Unit,
     seekRequest: Pair<Long, Float>?,
@@ -1024,6 +1116,7 @@ private fun VideoFeedCard(
                 if (videoUrl != null) {
                     VideoPreview(
                         videoUrl = videoUrl,
+                        posterUrl = post.coverImage,
                         isActive = isActive,
                                             onTapLike = onTapLike,
                                             onPlaybackProgress = onPlaybackProgress,
@@ -1055,6 +1148,22 @@ private fun VideoFeedCard(
 
             Box(
                 modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.62f),
+                                Color.Black.copy(alpha = 0.18f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+            )
+
+            Box(
+                modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(280.dp)
@@ -1072,41 +1181,37 @@ private fun VideoFeedCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, end = 84.dp, bottom = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(start = 16.dp, end = 84.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    InitialAvatar(
-                        authorName,
-                        48,
-                        post.author.profilePicture,
-                        Modifier.clickable(onClick = onOpenAuthor),
+                    Text(
+                        authorHandle,
+                        modifier = Modifier.clickable(onClick = onOpenAuthor),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
                     )
-                    Column(Modifier.padding(start = 10.dp)) {
-                        Text(
-                            authorHandle,
-                            modifier = Modifier.clickable(onClick = onOpenAuthor),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            authorName,
-                            modifier = Modifier.clickable(onClick = onOpenAuthor),
-                            color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
                 }
                 Text(
                     text = post.text.ifBlank { "Fresh videos, people, and ideas from your network." },
                     color = Color.White,
                     style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
                 )
-                if (mediaUrl != null) {
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.42f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("♪", color = Color(0xFFFF7A00), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        text = if (videoUrl == null) "Photo" else "Video",
+                        text = "Original sound • Topline",
+                        modifier = Modifier.padding(start = 6.dp),
                         color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                     )
                 }
             }
@@ -1114,10 +1219,38 @@ private fun VideoFeedCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 8.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                    .padding(end = 8.dp, bottom = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                Box(
+                    modifier = Modifier.padding(bottom = 2.dp),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    InitialAvatar(
+                        authorName,
+                        46,
+                        post.author.profilePicture,
+                        Modifier.clickable(onClick = onOpenAuthor),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .offset(y = 8.dp)
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(if (isFollowingAuthor) Color(0xFF343537) else Color(0xFFFF7A00))
+                            .border(1.dp, Color.Black, CircleShape)
+                            .clickable(onClick = onFollowAuthor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            if (isFollowingAuthor) "✓" else "+",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                        )
+                    }
+                }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(onClick = onLike, modifier = Modifier.size(44.dp)) {
                         TikTokHeartIcon(isLiked = isLiked)
@@ -1169,8 +1302,48 @@ private fun VideoFeedCard(
                         lineHeight = 12.sp,
                     )
                 }
+                RotatingSoundDisc(imageUrl = post.author.profilePicture)
             }
 
+        }
+    }
+}
+
+@Composable
+private fun RotatingSoundDisc(imageUrl: String?) {
+    val rotation = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            rotation.animateTo(360f, tween(durationMillis = 4_000, easing = LinearEasing))
+            rotation.snapTo(0f)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(top = 2.dp)
+            .size(48.dp)
+            .graphicsLayer { rotationZ = rotation.value }
+            .clip(CircleShape)
+            .background(Color(0xFF1E1E1E))
+            .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(38.dp).clip(CircleShape).background(Color.Black)
+                .border(1.dp, Color.White.copy(alpha = 0.14f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (imageUrl.isNullOrBlank()) {
+                Text("♪", color = Color(0xFFFF7A00), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            } else {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Audio artwork",
+                    modifier = Modifier.size(24.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                )
+            }
         }
     }
 }
@@ -1233,6 +1406,7 @@ private fun TikTokSaveIcon(isSaved: Boolean) {
 @Composable
 private fun VideoPreview(
     videoUrl: String,
+    posterUrl: String?,
     isActive: Boolean,
     onTapLike: () -> Unit,
     onPlaybackProgress: (Float) -> Unit,
@@ -1241,6 +1415,20 @@ private fun VideoPreview(
 ) {
     val context = LocalContext.current
     val playbackUrl = remember(videoUrl) { cloudinaryPlaybackUrl(videoUrl) }
+    fun mediaItem(url: String): MediaItem {
+        val builder = MediaItem.Builder().setUri(url)
+        val isMp4 =
+            Uri.parse(url).lastPathSegment?.endsWith(".mp4", ignoreCase = true) == true ||
+                (url.contains("res.cloudinary.com/") &&
+                    url.contains("/video/upload/") &&
+                    url.substringAfter("/video/upload/").substringBefore('/').let { transformations ->
+                        "f_mp4" in transformations.split(',')
+                    })
+        if (isMp4) {
+            builder.setMimeType(MimeTypes.VIDEO_MP4)
+        }
+        return builder.build()
+    }
     var playbackError by remember(videoUrl) { mutableStateOf(false) }
     var originalUrlFallbackUsed by remember(videoUrl) { mutableStateOf(false) }
     var isPlaying by remember(videoUrl) { mutableStateOf(isActive) }
@@ -1276,8 +1464,11 @@ private fun VideoPreview(
                         isPlaying = playing
                     }
                 })
-                setMediaItem(MediaItem.fromUri(playbackUrl))
-                repeatMode = Player.REPEAT_MODE_OFF
+                setMediaItem(mediaItem(playbackUrl))
+                // Short-form feeds loop the active video so the viewer can keep
+                // watching without an extra tap, matching the expected TikTok
+                // style playback behavior.
+                repeatMode = Player.REPEAT_MODE_ONE
                 prepare()
                 playWhenReady = isActive
             }
@@ -1289,7 +1480,7 @@ private fun VideoPreview(
             originalUrlFallbackUsed = true
             playbackError = false
             isBuffering = true
-            exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+            exoPlayer.setMediaItem(mediaItem(videoUrl))
             exoPlayer.prepare()
             exoPlayer.playWhenReady = isActive
         }
@@ -1363,6 +1554,14 @@ private fun VideoPreview(
             },
             modifier = Modifier.fillMaxSize(),
         )
+        if (!posterUrl.isNullOrBlank() && (isBuffering || playbackError)) {
+            AsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
         if (isBuffering && !playbackError && isActive) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center).size(42.dp),
@@ -1392,9 +1591,7 @@ private fun VideoPreview(
                     onClick = {
                         playbackError = false
                         exoPlayer.seekTo(0)
-                        exoPlayer.setMediaItem(
-                            MediaItem.fromUri(if (originalUrlFallbackUsed) videoUrl else playbackUrl),
-                        )
+                        exoPlayer.setMediaItem(mediaItem(if (originalUrlFallbackUsed) videoUrl else playbackUrl))
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = isActive
                     },

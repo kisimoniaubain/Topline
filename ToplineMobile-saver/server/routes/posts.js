@@ -11,29 +11,29 @@ import Post from "../models/Post.js";
 import SavedPost from "../models/SavedPost.js";
 import User from "../models/User.js";
 import { createNotification } from "../utils/createNotification.js";
+import { canViewPost } from "../utils/postAccess.js";
+import {
+	getPostVideoUrl,
+	isVideoFile,
+	looksLikeVideoUrl,
+	videoMimeTypePattern,
+	videoUrlPattern,
+} from "../utils/postMedia.js";
 
 const router = express.Router();
-
-const looksLikeVideoUrl = (url) =>
-	typeof url === "string" &&
-	(/\/video\/upload\//i.test(url) || /\.(3gp|m3u8|m4v|mkv|mov|mp4|webm)(?:[?#]|$)/i.test(url));
 
 const toClientPost = (post) => {
 	const value = typeof post.toObject === "function" ? post.toObject() : post;
 	const mediaType = value.mediaType || value.media_type || "";
-	const declaresVideo = mediaType.toLowerCase() === "video" ||
-		mediaType.toLowerCase().startsWith("video/");
-	const videoUrl = value.video || value.videoUrl || value.video_url ||
-		(declaresVideo ? value.mediaUrl || value.image : "") ||
-		(looksLikeVideoUrl(value.mediaUrl) ? value.mediaUrl : "") ||
-		(looksLikeVideoUrl(value.image) ? value.image : "");
+	const declaresVideo = videoMimeTypePattern.test(mediaType);
+	const videoUrl = getPostVideoUrl(value);
 
 	return {
 		...value,
 		video: videoUrl,
 		videoUrl,
 		mediaUrl: value.mediaUrl || videoUrl || value.image || "",
-		mediaType: videoUrl ? "video/mp4" : mediaType,
+		mediaType: videoUrl ? (declaresVideo ? mediaType : "video/mp4") : mediaType,
 	};
 };
 
@@ -71,11 +71,11 @@ const upload = multer({
 	dest: "uploads/",
 	limits: { fileSize: 500 * 1024 * 1024 },
 	fileFilter: (_req, file, callback) => {
-		if (file.fieldname === "cover" && !file.mimetype.startsWith("image/")) {
+		if (file.fieldname === "cover" && !(file.mimetype || "").startsWith("image/")) {
 			callback(new Error("Choose an image for the video cover."));
 			return;
 		}
-		if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
+		if ((file.mimetype || "").startsWith("image/") || isVideoFile(file)) {
 			callback(null, true);
 			return;
 		}
@@ -168,12 +168,13 @@ router.get("/author/:authorId", async (req, res) => {
 		}
 
 		const author = await User.findById(authorId)
-			.select("name username profilePicture bio location createdAt")
+			.select("name username profilePicture bio location privateAccount createdAt")
 			.lean();
 		if (!author) {
 			return res.status(404).json({ message: "User not found." });
 		}
 
+		let viewerCanSeePrivatePosts = false;
 		let visiblePostFilter = {
 			$or: [
 				{ visibility: "public" },
@@ -185,13 +186,18 @@ router.get("/author/:authorId", async (req, res) => {
 			try {
 				const viewerId = jwt.verify(token, process.env.JWT_SECRET).userId;
 				if (String(viewerId) === String(authorId)) {
+					viewerCanSeePrivatePosts = true;
 					visiblePostFilter = {};
 				} else if (await Friend.exists({ follower: viewerId, following: authorId })) {
+					viewerCanSeePrivatePosts = true;
 					visiblePostFilter.$or.push({ visibility: "followers" });
 				}
 			} catch {
 				// Invalid optional credentials do not grant access to follower-only posts.
 			}
+		}
+		if (author.privateAccount && !viewerCanSeePrivatePosts) {
+			visiblePostFilter = { _id: { $exists: false } };
 		}
 		const records = await Post.find({ author: authorId, ...visiblePostFilter })
 			.sort({ createdAt: -1 })
@@ -230,8 +236,22 @@ router.get("/following", async (req, res) => {
 
 		const records = await Post.find({
 			author: { $in: followingIds },
-			video: { $nin: ["", null] },
-			$or: [{ visibility: { $in: ["public", "followers"] } }, { visibility: { $exists: false } }],
+			$and: [
+				{
+					$or: [
+						{ video: { $regex: /\S/ } },
+						{ mediaType: videoMimeTypePattern },
+						{ mediaUrl: videoUrlPattern },
+						{ image: videoUrlPattern },
+					],
+				},
+				{
+					$or: [
+						{ visibility: { $in: ["public", "followers"] } },
+						{ visibility: { $exists: false } },
+					],
+				},
+			],
 		})
 			.sort({ createdAt: -1 })
 			.limit(50)
@@ -268,7 +288,7 @@ router.get("/", async (req, res) => {
 				currentUserId = null;
 			}
 		}
-		const visibilityFilter = currentUserId
+		const publicAndFollowerPosts = currentUserId
 			? {
 				$or: [
 					{ visibility: "public" },
@@ -278,6 +298,19 @@ router.get("/", async (req, res) => {
 				],
 			}
 			: { $or: [{ visibility: "public" }, { visibility: { $exists: false } }] };
+		const privateAccountFilter = currentUserId
+			? { _id: { $nin: [currentUserId, ...visibleAuthorIds] } }
+			: {};
+		const privateAuthorIds = await User.distinct("_id", {
+			privateAccount: true,
+			...privateAccountFilter,
+		});
+		const visibilityFilter = {
+			$and: [
+				publicAndFollowerPosts,
+				{ author: { $nin: privateAuthorIds } },
+			],
+		};
 		const records = await Post.find(visibilityFilter)
 			.sort({ createdAt: -1 })
 			.limit(50)
@@ -326,6 +359,11 @@ router.post("/:postId/share", async (req, res) => {
 			return res.status(401).json({ message: "User account was not found." });
 		}
 
+		const postToShare = await Post.findById(postId).select("author");
+		if (!postToShare || !(await canViewPost(postToShare, decoded.userId))) {
+			return res.status(404).json({ message: "Post not found." });
+		}
+
 		const post = await Post.findByIdAndUpdate(
 			postId,
 			{ $inc: { sharesCount: 1 } },
@@ -372,6 +410,7 @@ router.post("/", upload, async (req, res) => {
 
 		let image = "";
 		let video = "";
+		let mediaType = "";
 		let coverImage = "";
 
 		if (file) {
@@ -379,7 +418,7 @@ router.post("/", upload, async (req, res) => {
 				return res.status(503).json({ message: "Media uploads are not configured on the server." });
 			}
 
-			const resourceType = file.mimetype.startsWith("video/") ? "video" : "image";
+			const resourceType = isVideoFile(file) ? "video" : "image";
 			let uploaded;
 			try {
 				uploaded = resourceType === "video"
@@ -394,6 +433,9 @@ router.post("/", upload, async (req, res) => {
 						folder: "topline/posts",
 						resource_type: "image",
 					});
+				if (!uploaded?.secure_url) {
+					throw new Error("The media service did not return a playable URL.");
+				}
 			} catch (error) {
 				console.error("Cloudinary media upload error:", error);
 				return res.status(error.http_code === 413 ? 413 : 502).json({
@@ -404,8 +446,13 @@ router.post("/", upload, async (req, res) => {
 			if (resourceType === "video") {
 				video = uploaded.eager?.find((format) => format.format === "mp4")?.secure_url
 					|| uploaded.secure_url;
+				if (!looksLikeVideoUrl(video)) {
+					return res.status(502).json({ message: "The video service returned an invalid playback URL." });
+				}
+				mediaType = "video/mp4";
 			} else {
 				image = uploaded.secure_url;
+				mediaType = file.mimetype;
 			}
 		}
 
@@ -427,6 +474,8 @@ router.post("/", upload, async (req, res) => {
 			text,
 			image,
 			video,
+			mediaUrl: video || image,
+			mediaType,
 			coverImage,
 			visibility,
 			allowComments,

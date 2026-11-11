@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
+import com.facebook.CallbackManager
 import com.kisimoni.topline.data.api.PushDeviceRequest
 import com.kisimoni.topline.data.local.UserPreferences
 import com.kisimoni.topline.data.api.ApiService
@@ -43,11 +44,17 @@ import retrofit2.HttpException
 import java.io.IOException
 
 class MainActivity : ComponentActivity() {
+    private val qrApprovalToken = mutableStateOf<String?>(null)
+    private val facebookCallbackManager = CallbackManager.Factory.create()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val preferences = UserPreferences(this)
         val useDarkSplash = preferences.isDarkModeEnabled()
         setTheme(if (useDarkSplash) R.style.Theme_Topline_Dark else R.style.Theme_Topline)
         super.onCreate(savedInstanceState)
+        qrApprovalToken.value = intent?.data
+            ?.takeIf { it.scheme == "topline" && it.host == "auth" && it.path == "/qr" }
+            ?.getQueryParameter("token")
         requestNotificationPermissionIfNeeded()
         val presenceApi = ApiService.create(preferences)
         lifecycleScope.launch {
@@ -116,6 +123,9 @@ class MainActivity : ComponentActivity() {
                         preferences = preferences,
                         darkMode = darkMode,
                         language = language,
+                        qrApprovalToken = qrApprovalToken.value,
+                        onQrApprovalHandled = { qrApprovalToken.value = null },
+                        facebookCallbackManager = facebookCallbackManager,
                         onDarkModeChanged = {
                             darkMode = it
                             preferences.saveDarkModeEnabled(it)
@@ -129,6 +139,20 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        qrApprovalToken.value = intent.data
+            ?.takeIf { it.scheme == "topline" && it.host == "auth" && it.path == "/qr" }
+            ?.getQueryParameter("token")
+    }
+
+    @Deprecated("Facebook Login SDK requires forwarding activity results.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        facebookCallbackManager.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -151,6 +175,9 @@ private fun ToplineApp(
     preferences: UserPreferences,
     darkMode: Boolean,
     language: String,
+    qrApprovalToken: String?,
+    onQrApprovalHandled: () -> Unit,
+    facebookCallbackManager: CallbackManager,
     onDarkModeChanged: (Boolean) -> Unit,
     onLanguageChanged: (String) -> Unit,
 ) {
@@ -165,6 +192,9 @@ private fun ToplineApp(
         postViewModel = postViewModel,
         darkMode = darkMode,
         language = language,
+        qrApprovalToken = qrApprovalToken,
+        onQrApprovalHandled = onQrApprovalHandled,
+        facebookCallbackManager = facebookCallbackManager,
         onDarkModeChanged = onDarkModeChanged,
         onLanguageChanged = onLanguageChanged,
     )

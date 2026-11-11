@@ -9,7 +9,15 @@ import com.kisimoni.topline.data.api.SimpleResponse
 import com.kisimoni.topline.data.api.RegisterRequest
 import com.kisimoni.topline.data.api.PushDeviceRequest
 import com.kisimoni.topline.data.api.UpdateProfileRequest
+import com.kisimoni.topline.data.api.UpdatePrivacyRequest
 import com.kisimoni.topline.data.api.UserResponse
+import com.kisimoni.topline.data.api.PasswordResetRequest
+import com.kisimoni.topline.data.api.PasswordResetConfirmRequest
+import com.kisimoni.topline.data.api.ProviderAuthRequest
+import com.kisimoni.topline.data.api.GoogleSignupVerificationRequest
+import com.kisimoni.topline.data.api.QrAuthRequest
+import com.kisimoni.topline.data.api.QrAuthStartResponse
+import com.kisimoni.topline.data.api.QrAuthPollResponse
 import com.kisimoni.topline.data.local.UserPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +35,39 @@ class AuthRepository(
         apiService.login(AuthRequest(identifier, password))
     }
 
+    suspend fun requestPasswordReset(email: String): SimpleResponse = withContext(Dispatchers.IO) {
+        apiService.requestPasswordReset(PasswordResetRequest(email))
+    }
+
+    suspend fun confirmPasswordReset(email: String, code: String, password: String): SimpleResponse =
+        withContext(Dispatchers.IO) {
+            apiService.confirmPasswordReset(PasswordResetConfirmRequest(email, code, password))
+        }
+
+    suspend fun loginWithProvider(provider: String, credential: String): AuthResponse = withContext(Dispatchers.IO) {
+        when (provider) {
+            "google" -> apiService.loginWithGoogle(ProviderAuthRequest(credential))
+            "facebook" -> apiService.loginWithFacebook(ProviderAuthRequest(credential))
+            else -> throw IllegalArgumentException("Unsupported sign-in provider.")
+        }
+    }
+
+    suspend fun confirmGoogleSignup(email: String, code: String): AuthResponse = withContext(Dispatchers.IO) {
+        apiService.confirmGoogleSignup(GoogleSignupVerificationRequest(email, code))
+    }
+
+    suspend fun startQrLogin(): QrAuthStartResponse = withContext(Dispatchers.IO) {
+        apiService.startQrLogin()
+    }
+
+    suspend fun pollQrLogin(token: String): QrAuthPollResponse = withContext(Dispatchers.IO) {
+        apiService.pollQrLogin(QrAuthRequest(token))
+    }
+
+    suspend fun approveQrLogin(token: String, qrToken: String): SimpleResponse = withContext(Dispatchers.IO) {
+        apiService.approveQrLogin("Bearer $token", QrAuthRequest(qrToken))
+    }
+
     suspend fun register(request: RegisterRequest): AuthResponse = withContext(Dispatchers.IO) {
         apiService.register(request)
     }
@@ -37,6 +78,10 @@ class AuthRepository(
 
     suspend fun updateCurrentUser(token: String, request: UpdateProfileRequest): UserResponse = withContext(Dispatchers.IO) {
         apiService.updateCurrentUser("Bearer $token", request)
+    }
+
+    suspend fun updatePrivacy(token: String, privateAccount: Boolean): UserResponse = withContext(Dispatchers.IO) {
+        apiService.updatePrivacy("Bearer $token", UpdatePrivacyRequest(privateAccount))
     }
 
     suspend fun updateCurrentUserAvatar(token: String, uri: Uri): UserResponse = withContext(Dispatchers.IO) {
