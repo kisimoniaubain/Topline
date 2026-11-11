@@ -30,7 +30,9 @@ object BootstrapIcons {
     @Composable fun Email() = ImageVector.vectorResource(R.drawable.bootstrap_envelope)
     @Composable fun Eye() = ImageVector.vectorResource(R.drawable.bootstrap_eye)
     @Composable fun EyeSlash() = ImageVector.vectorResource(R.drawable.bootstrap_eye_slash)
+    @Composable fun Facebook() = ImageVector.vectorResource(R.drawable.facebook_f)
     @Composable fun Gear() = ImageVector.vectorResource(R.drawable.bootstrap_gear)
+    @Composable fun Google() = ImageVector.vectorResource(R.drawable.google_g)
     @Composable fun GridFill() = ImageVector.vectorResource(R.drawable.bootstrap_grid_3x3_gap_fill)
     @Composable fun Heart() = ImageVector.vectorResource(R.drawable.bootstrap_heart)
     @Composable fun HeartFill() = ImageVector.vectorResource(R.drawable.bootstrap_heart_fill)
@@ -48,7 +50,7 @@ object BootstrapIcons {
     @Composable fun Search() = ImageVector.vectorResource(R.drawable.bootstrap_search)
     @Composable fun Send() = ImageVector.vectorResource(R.drawable.bootstrap_send_fill)
     @Composable fun Settings() = ImageVector.vectorResource(R.drawable.bootstrap_gear)
-    @Composable fun Share() = ImageVector.vectorResource(R.drawable.bootstrap_share_fill)
+    @Composable fun Share() = ImageVector.vectorResource(R.drawable.bootstrap_reply_fill)
     @Composable fun Sliders() = ImageVector.vectorResource(R.drawable.bootstrap_sliders)
     @Composable fun Trash() = ImageVector.vectorResource(R.drawable.bootstrap_trash)
 }

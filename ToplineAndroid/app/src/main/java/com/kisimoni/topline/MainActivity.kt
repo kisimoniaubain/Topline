@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
         val useDarkSplash = preferences.isDarkModeEnabled()
         setTheme(if (useDarkSplash) R.style.Theme_Topline_Dark else R.style.Theme_Topline)
         super.onCreate(savedInstanceState)
+        ToplineNotifications.createChannel(this)
         qrApprovalToken.value = intent?.data
             ?.takeIf { it.scheme == "topline" && it.host == "auth" && it.path == "/qr" }
             ?.getQueryParameter("token")
@@ -90,7 +91,7 @@ class MainActivity : ComponentActivity() {
                                     val shown = ToplineNotifications.show(
                                         this@MainActivity,
                                         "Topline notifications are on",
-                                        "We'll let you know when someone follows you, likes or comments on your posts, or sends you a message.",
+                                        "We'll let you know about follows, likes, comments, messages, and new posts from people you follow.",
                                     )
                                     if (shown) {
                                         preferences.markPushWelcomeNotificationShown()

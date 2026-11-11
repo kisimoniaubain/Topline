@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
+import { isS3StorageConfigured, uploadMediaToS3 } from "../utils/s3MediaStorage.js";
 import Comment from "../models/Comment.js";
 import Friend from "../models/Friend.js";
 import Like from "../models/Like.js";
@@ -414,57 +415,74 @@ router.post("/", upload, async (req, res) => {
 		let coverImage = "";
 
 		if (file) {
-			if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+			const useS3 = process.env.STORAGE_PROVIDER?.trim().toLowerCase() === "s3";
+			if (useS3 && !isS3StorageConfigured()) {
+				return res.status(503).json({ message: "S3 media storage is not configured on the server." });
+			}
+			if (!useS3 && (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET)) {
 				return res.status(503).json({ message: "Media uploads are not configured on the server." });
 			}
 
 			const resourceType = isVideoFile(file) ? "video" : "image";
 			let uploaded;
 			try {
-				uploaded = resourceType === "video"
-					? await cloudinary.uploader.upload_large(file.path, {
-						folder: "topline/posts",
-						resource_type: "video",
-						chunk_size: 6 * 1024 * 1024,
-						eager: [{ format: "mp4", video_codec: "h264", audio_codec: "aac" }],
-						eager_async: false,
-					})
-					: await cloudinary.uploader.upload(file.path, {
-						folder: "topline/posts",
-						resource_type: "image",
-					});
-				if (!uploaded?.secure_url) {
+				uploaded = useS3
+					? await uploadMediaToS3(file, "topline/posts")
+					: resourceType === "video"
+						? await cloudinary.uploader.upload_large(file.path, {
+							folder: "topline/posts",
+							resource_type: "video",
+							chunk_size: 6 * 1024 * 1024,
+							eager: [{ format: "mp4", video_codec: "h264", audio_codec: "aac" }],
+							eager_async: false,
+						})
+						: await cloudinary.uploader.upload(file.path, {
+							folder: "topline/posts",
+							resource_type: "image",
+						});
+				const uploadedUrl = uploaded?.publicUrl || uploaded?.secure_url;
+				if (!uploadedUrl) {
 					throw new Error("The media service did not return a playable URL.");
 				}
 			} catch (error) {
-				console.error("Cloudinary media upload error:", error);
+				console.error(`${useS3 ? "S3" : "Cloudinary"} media upload error:`, error);
 				return res.status(error.http_code === 413 ? 413 : 502).json({
-					message: error.message || "The media upload or video conversion failed.",
+					message: "The media upload failed. Please try again.",
 				});
 			}
 
 			if (resourceType === "video") {
 				video = uploaded.eager?.find((format) => format.format === "mp4")?.secure_url
+					|| uploaded.publicUrl
 					|| uploaded.secure_url;
-				if (!looksLikeVideoUrl(video)) {
+				if (!looksLikeVideoUrl(video) && !(useS3 && videoMimeTypePattern.test(file.mimetype || ""))) {
 					return res.status(502).json({ message: "The video service returned an invalid playback URL." });
 				}
-				mediaType = "video/mp4";
+				mediaType = useS3 && videoMimeTypePattern.test(file.mimetype || "") ? file.mimetype : "video/mp4";
 			} else {
-				image = uploaded.secure_url;
+				image = uploaded.publicUrl || uploaded.secure_url;
 				mediaType = file.mimetype;
 			}
 		}
 
 		if (cover) {
 			try {
-				const uploadedCover = await cloudinary.uploader.upload(cover.path, {
-					folder: "topline/posts/covers",
-					resource_type: "image",
-				});
-				coverImage = uploadedCover.secure_url;
+				const useS3 = process.env.STORAGE_PROVIDER?.trim().toLowerCase() === "s3";
+				if (useS3) {
+					if (!isS3StorageConfigured()) {
+						return res.status(503).json({ message: "S3 media storage is not configured on the server." });
+					}
+					const uploadedCover = await uploadMediaToS3(cover, "topline/posts/covers");
+					coverImage = uploadedCover.publicUrl;
+				} else {
+					const uploadedCover = await cloudinary.uploader.upload(cover.path, {
+						folder: "topline/posts/covers",
+						resource_type: "image",
+					});
+					coverImage = uploadedCover.secure_url;
+				}
 			} catch (error) {
-				console.error("Cloudinary cover upload error:", error);
+				console.error("Post cover upload error:", error);
 				return res.status(502).json({ message: "The cover image could not be uploaded." });
 			}
 		}

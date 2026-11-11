@@ -14,6 +14,22 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 object ToplineNotifications {
+    fun createChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
+
+        val channelId = context.getString(R.string.topline_notification_channel_id)
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                channelId,
+                context.getString(R.string.topline_notification_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+    }
+
     fun show(context: Context, title: String, body: String): Boolean {
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -24,16 +40,7 @@ object ToplineNotifications {
         }
 
         val channelId = context.getString(R.string.topline_notification_channel_id)
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.createNotificationChannel(
-                NotificationChannel(
-                    channelId,
-                    context.getString(R.string.topline_notification_channel_name),
-                    NotificationManager.IMPORTANCE_DEFAULT,
-                ),
-            )
-        }
+        createChannel(context)
 
         val contentIntent = PendingIntent.getActivity(
             context,

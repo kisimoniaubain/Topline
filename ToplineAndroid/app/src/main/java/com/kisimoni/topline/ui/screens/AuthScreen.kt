@@ -4,9 +4,9 @@ import android.app.DatePickerDialog
 import android.app.Activity
 import android.graphics.Bitmap
 import android.content.Context
-import android.content.res.ColorStateList
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +56,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextStyle
@@ -69,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.CustomCredential
@@ -78,7 +78,7 @@ import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
 import com.facebook.login.LoginResult
-import com.facebook.login.widget.LoginButton
+import com.facebook.login.LoginManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.kisimoni.topline.ui.BrandLogo
@@ -574,56 +574,83 @@ fun AuthScreen(
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF202124),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     shape = RoundedCornerShape(14.dp),
                 ) {
+                    Icon(
+                        BootstrapIcons.Google(),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.Unspecified,
+                    )
+                    Spacer(Modifier.size(10.dp))
                     Text("Continue with Google", fontWeight = FontWeight.Bold)
                 }
 
-                if (BuildConfig.TOPLINE_FACEBOOK_APP_ID.isNotBlank()) {
-                    AndroidView(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
-                        factory = { viewContext ->
-                            LoginButton(viewContext).apply {
-                                backgroundTintList = ColorStateList.valueOf(android.graphics.Color.rgb(24, 119, 242))
-                                setTextColor(android.graphics.Color.WHITE)
-                                setPermissions("public_profile", "email")
-                                registerCallback(facebookCallbackManager, object : FacebookCallback<LoginResult> {
-                                    override fun onSuccess(result: LoginResult) {
-                                        authViewModel.loginWithProvider(
-                                            provider = "facebook",
-                                            credential = result.accessToken.token,
-                                            rememberMe = rememberLogin,
-                                            onSuccess = { onNavigateToHome() },
-                                        )
-                                    }
-
-                                    override fun onCancel() {
-                                        qrMessage = "Facebook sign-in was cancelled."
-                                    }
-
-                                    override fun onError(error: FacebookException) {
-                                        qrMessage = error.localizedMessage ?: "Facebook sign-in failed."
-                                        showHelp = true
-                                    }
-                                })
-                            }
-                        },
-                    )
-                } else {
-                    Button(
-                        onClick = {
+                Button(
+                    onClick = {
+                        if (BuildConfig.TOPLINE_FACEBOOK_APP_ID.isBlank()) {
                             qrMessage = "Set TOPLINE_FACEBOOK_APP_ID in your local Gradle properties."
                             showHelp = true
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Text("Continue with Facebook", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                        } else {
+                            val activity = context as? Activity
+                            if (activity == null) {
+                                qrMessage = "Unable to open Facebook sign-in."
+                                showHelp = true
+                            } else {
+                                try {
+                                    LoginManager.getInstance().registerCallback(
+                                        facebookCallbackManager,
+                                        object : FacebookCallback<LoginResult> {
+                                            override fun onSuccess(result: LoginResult) {
+                                                authViewModel.loginWithProvider(
+                                                    provider = "facebook",
+                                                    credential = result.accessToken.token,
+                                                    rememberMe = rememberLogin,
+                                                    onSuccess = { onNavigateToHome() },
+                                                )
+                                            }
+
+                                            override fun onCancel() {
+                                                qrMessage = "Facebook sign-in was cancelled."
+                                            }
+
+                                            override fun onError(error: FacebookException) {
+                                                qrMessage = error.localizedMessage ?: "Facebook sign-in failed."
+                                                showHelp = true
+                                            }
+                                        },
+                                    )
+                                    LoginManager.getInstance().logInWithReadPermissions(
+                                        activity,
+                                        listOf("public_profile", "email"),
+                                    )
+                                } catch (error: Exception) {
+                                    qrMessage = error.localizedMessage ?: "Facebook sign-in failed."
+                                    showHelp = true
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Icon(
+                        BootstrapIcons.Facebook(),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF1877F2),
+                    )
+                    Spacer(Modifier.size(10.dp))
+                    Text("Continue with Facebook", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -637,11 +664,19 @@ fun AuthScreen(
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF25F4EE),
-                        contentColor = Color(0xFF161823),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     shape = RoundedCornerShape(14.dp),
                 ) {
+                    Icon(
+                        Icons.Outlined.QrCode2,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.size(10.dp))
                     Text("Continue with QR code", fontWeight = FontWeight.Bold)
                 }
             }
